@@ -1,12 +1,12 @@
 {
   "name": "just-build",
-  "version": "0.1",
+  "version": "0.0.1",
   "description": "Simplistic task runner with specific support for --watch.",
   "author": "David Fahlander <https://github.com/dfahlander>",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dfahlander/just-build-it.git"
+    "url": "https://github.com/dfahlander/just-build.git"
   },
   "keywords": [
     "taskrunner",
@@ -14,11 +14,11 @@
     "build"
   ],
   "bugs": {
-    "url": "https://github.com/dfahlander/just-build-it/issues"
+    "url": "https://github.com/dfahlander/just-build/issues"
   },  
   "main": "index.js",
   "bin": {
-      "just-build-it": "./index.js"
+      "just-build": "./index.js"
   },
   "scripts": {
     "test": "echo no tests yet"
