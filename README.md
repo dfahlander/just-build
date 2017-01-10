@@ -24,21 +24,26 @@ npm install just-build --save-dev
 
 ### *package.json*
 
+You configure your build tasks within package.json itself under "just-build" attribute.
+
 ```
 {
-    "name": "library-name",
-    "version": "1.0.0",
-    ...
-    "scripts": {
-        "build": "just-build",
-        ...
-    },
     "just-build": {
         "default": [
             "<CLI command 1> [--watch [grep-text]]",
             "<CLI command 2>",
             ...
         ]
+        "task-name-1": [
+            "<CLI command 1> [--watch [grep-text]]",
+            "<CLI command 2>",
+            ...
+        ],
+        "task-name-2": [
+            "<CLI command 1> [--watch [grep-text]]",
+            "<CLI command 2>",
+            ...
+        ],
     }
 }
 ```
