@@ -47,6 +47,7 @@ You configure your build tasks within package.json itself under "just-build" att
     }
 }
 ```
+The "default" task will be executed when no arguments was given to `just-build`.
 
 # CLI
 
@@ -84,10 +85,10 @@ just-build [<options>] [<task>]
     }
     "just-build": {
         "default": [
-            "just-build [--watch 'just-build default done']",
+            "just-build myApp [--watch 'just-build myApp done']",
             "just-build test [--watch 'just-build test done']"
         ],
-        "my-app": [
+        "myApp": [
             "tsc [--watch 'Compilation complete.']",
             "rollup -c",
             "uglifyjs dist/index.js -m -c -o dist/index.min.js --source-map dist/index.min.js.map  --in-source-map dist/index.js.map",
@@ -108,12 +109,12 @@ Then to build the default flow, type:
 npm run build
 ```
 
-The above command will build the default task, which in its turn will build both my-app and test.
+The above command will build the default task, which in its turn will build both myApp and test.
 This will result in the following sequence:
 
 1. tsc
 2. rollup -c
-3. *...the rest of commands in "my-app"*
+3. *...the rest of commands in "myApp"*
 4. tsc --project test
 5. echo "Foo Bar"
 
@@ -137,7 +138,7 @@ This is the detailed sequence that will be executed:
     1. rollup -c
     2. uglifyjs...
     3. bash... and node ...
-    4. *At this point, everything in the "my-app" target is built*. It will now output **just-build my-app done.**
+    4. *At this point, everything in the "myApp" target is built*. It will now output **just-build myApp done.**
        to stdout. Then it will continue by invoking the next target 'test':
     5. tsc --project test --watch
     6. Whenever stdout from tsc --project test --watch emits "Compilation complete.", execute following:
@@ -149,7 +150,7 @@ This is the detailed sequence that will be executed:
 To just build the app:
 
 ```
-npm run build -- my-app
+npm run build -- myApp
 ```
 *Do not forget the empty "--" in the middle!*
 
@@ -157,7 +158,7 @@ npm run build -- my-app
 To build the app and start watching:
 
 ```
-npm run build -- my-app --watch
+npm run build -- myApp --watch
 ```
 
 # PATH env variable
