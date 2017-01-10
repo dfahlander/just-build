@@ -26,6 +26,8 @@ npm install just-build --save-dev
 
 ```
 {
+    "name": "library-name",
+    "version": "1.0.0",
     ...
     "scripts": {
         "build": "just-build",
