@@ -76,7 +76,7 @@ just-build [<options>] [<task>]
 ```json
 {
     "name": "my-library",
-    "version": "1.0",
+    "version": "1.0.0",
     "main": "dist/index.js",
     "scripts": {
         "build": "just-build",
@@ -129,22 +129,21 @@ npm run build -- --watch
 ```
 *Notice the stand-alone "--"! It tells npm run to pass remaining args to script.*
 
-Any of the above commands will build the two targets with the ability to watch them both!
+Any of the above commands will build the two targets with the ability to watch them both! If you want
+to understand how this works, this is the flow that is executed:
 
-This is the detailed sequence that will be executed:
-
-1. tsc --watch
-2. Whenever stdout from tsc --watch emits "Compilation complete.", execute the following flow:
-    1. rollup -c
-    2. uglifyjs...
-    3. bash... and node ...
-    4. *At this point, everything in the "myApp" target is built*. It will now output **just-build myApp done.**
-       to stdout. Then it will continue by invoking the next target 'test':
-    5. tsc --project test --watch
-    6. Whenever stdout from tsc --project test --watch emits "Compilation complete.", execute following:
-        1. echo "Foo Bar"
-        2. *At this point, everything in the "test" target is build*. It will now output
-           **just-build test done.** to stdout.
+    1. tsc --watch
+    2. Whenever stdout from tsc --watch emits "Compilation complete.", execute the following flow:
+        1. rollup -c
+        2. uglifyjs...
+        3. bash... and node ...
+        4. *At this point, everything in the "myApp" target is built*. It will now output **just-build myApp done.**
+        to stdout. Then it will continue by invoking the next target 'test':
+        5. tsc --project test --watch
+        6. Whenever stdout from tsc --project test --watch emits "Compilation complete.", execute following:
+            1. echo "Foo Bar"
+            2. *At this point, everything in the "test" target is build*. It will now output
+            **just-build test done.** to stdout.
 
 
 To just build the app:
