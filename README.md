@@ -174,7 +174,7 @@ the user stand when executing the script, or whether a task in a previously run 
 directory.
 
 # Supported Shell
-This script is very simple and will only use [child_process.exec()](https://nodejs.org/api/child_process.html#child_process_child_process_exec_command_options_callback)
+This script is very simple and will only use [child_process.spawn()](https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options)
 to execute each CLI command in your build targets. This is almost always true (see *Special Treatment of Certain Command Strings* below). What this means is that
 it will execute cmd on windows and bash or sh on *nix, so you should not invoke env-variables or rely on bash-specific
 features in your commands. If that is required, launch `bash <your-script.sh>` on a line and do the advanced bash-
@@ -182,10 +182,10 @@ things in your-script.sh instead. Windows-users using git-bash have bash.exe in 
 windows too.
 
 # Special Treatment of Certain Command Strings
-Each command listed is passed to [child_process.exec()](https://nodejs.org/api/child_process.html#child_process_child_process_exec_command_options_callback)
+Each command listed is passed to [child_process.spawn()](https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options)
 except the following specialities:
 
-* "cd"  - If a line begins with "cd" the script will invoke process.chdir on the rest. Invoking [child_process.exec()](https://nodejs.org/api/child_process.html#child_process_child_process_exec_command_options_callback)
+* "cd"  - If a line begins with "cd" the script will invoke process.chdir on the rest. Invoking [child_process.spawn()](https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options)
 would have no effect.
 * "[--watch <grep-string>]" - If a line has a substring "[--watch .*]", it will be omitted unless --watch was given to the just-build itself.
 If so, it will only use "--watch" part (not "[", "]" or the grep-string). Then, it will start listening for *grep-string* and when a line
