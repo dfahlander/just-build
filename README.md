@@ -22,9 +22,9 @@ gulp-plugin.
 npm install just-build --save-dev
 ```
 
-*package.json*
+### *package.json*
 
-```json
+```
 {
     ...
     "scripts": {
@@ -35,12 +35,10 @@ npm install just-build --save-dev
         "default": [
             "<CLI command 1> [--watch [grep-text]]",
             "<CLI command 2>",
-            "..."
+            ...
         ]
     }
 }
-```
-
 ```
 
 # CLI
