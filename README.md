@@ -137,13 +137,13 @@ to understand how this works, this is the flow that is executed:
         1. rollup -c
         2. uglifyjs...
         3. bash... and node ...
-        4. *At this point, everything in the "myApp" target is built*. It will now output **just-build myApp done.**
-        to stdout. Then it will continue by invoking the next target 'test':
+        4. At this point, everything in the "myApp" target is built. It will now output 'just-build myApp done.'
+           to stdout. Then it will continue by invoking the next target 'test':
         5. tsc --project test --watch
         6. Whenever stdout from tsc --project test --watch emits "Compilation complete.", execute following:
             1. echo "Foo Bar"
-            2. *At this point, everything in the "test" target is build*. It will now output
-            **just-build test done.** to stdout.
+            2. At this point, everything in the "test" target is build. It will now output
+               'just-build test done.' to stdout.
 
 
 To just build the app:
