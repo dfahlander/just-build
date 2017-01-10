@@ -145,8 +145,10 @@ to understand how this works, this is the flow that is executed:
             2. At this point, everything in the "test" target is build. It will now output
                'just-build test done.' to stdout.
 
+Notice that the script starts by invoking commands sequencially, but as soon as it reaches a command marked with
+[--watch], it will start listen to stdout of that process in parallell with continuing the flow.
 
-To just build the app:
+To just build myApp:
 
 ```
 npm run build -- myApp
@@ -154,7 +156,7 @@ npm run build -- myApp
 *Do not forget the empty "--" in the middle!*
 
 
-To build the app and start watching:
+To build myApp and start watching:
 
 ```
 npm run build -- myApp --watch
@@ -162,9 +164,9 @@ npm run build -- myApp --watch
 
 # PATH env variable
 
-When run via "npm run ...", PATH variable will always include locally installed node modules. But also
-if invoked outside of "npm run ...", it will mimic the npm run behavior and add *&lt;current working dir&gt; +
-"node_modules/.bin/"* to PATH so that your commands always picks locally installed scripts.
+Node's "npm run ..." has the feature of adding the local 'node_modules/.bin' to the PATH variable so that locally installed binary modules are included.
+This will also be true when invoking 'just-build' outside of npm. 'just-build' will make sure that
+node_modules/.bin is part of PATH before executing.
 
 # Working Directory
 The working directory will always be the package root at the beginning of each target no matter where
