@@ -82,7 +82,7 @@ just-build [<options>] [<task>]
         "build": "just-build",
         "watch": "just-build --watch",
         "test": "mocha test/"
-    }
+    },
     "just-build": {
         "default": [
             "just-build myApp [--watch 'just-build myApp done']",
