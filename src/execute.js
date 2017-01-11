@@ -127,8 +127,8 @@ function createCommandExecutor (commands, spawnOptions, cfg) {
             childProcessHasExited = false;
 
         try {
-            const [cmd, ...args] = tokenize (command);
-            if (cmd === "") {
+            let [cmd, ...args] = tokenize (command);
+            if (!cmd) {
                 // Comment or empty line. ignore.
                 observer.next({commands: remainingCommands, spawnOptions});
             } else if (cmd === 'cd') {
@@ -138,9 +138,11 @@ function createCommandExecutor (commands, spawnOptions, cfg) {
                 observer.next({commands: remainingCommands, spawnOptions: nextSpawnOptions});
             } else if (cmd.indexOf('=') !== -1 || args.length > 0 && args[0].indexOf('=') === 0) {
                 // ENV_VAR = value, ENV_VAR=value, ENV_VAR= value or ENV_VAR =value.
-                const statement = args[0] === '=' ?
-                    cmd + args[0] + args[1] :
-                    cmd + args[0];
+                const statement = args.length > 0 ?
+                    args[0] === '=' ?
+                        cmd + args[0] + args[1] :
+                        cmd + args[0] :
+                    cmd;
                 const [variable, value] = statement.split('=');
                 const newEnv = clone(spawnOptions.env);
                 newEnv[variable] = value;
