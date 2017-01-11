@@ -1,5 +1,4 @@
 const { Observable } = require ('../bundledExternals/bundle');
-const { spawn } = require ('child_process');
 const path = require ('path');
 const { tokenize } = require ('./tokenize');
 const { clone } = require ('./extend');
@@ -11,28 +10,29 @@ const { clone } = require ('./extend');
         dir: string,
         taskSet: Object.<string, string[]>,
         tasksToRun: string[],
-        watchMode: boolean
+        watchMode: boolean,
+        spawn: Function,
+        env: Object,
+        log: Function
     }} Configuration to execute
  */
 function executeAll (cfg) {
-    let taskWatchers = cfg.tasksToRun.map(taskName => createTaskExecutor (cfg.taskSet[taskName], cfg));
-    // Make commands execute sequencial by reducing the observers using Observable.concat()
-    let sequencialObserver = taskWatchers.reduce((pw1, pw2) => pw1.concat(pw2));
-    // Execute them all and handle each watch wakeup.
-    sequencialObserver.subscribe({
-        next () {
-            if (cfg.tasksToRun.length > 1) {
-                // Just output summary done if more than one task was to be executed
-                process.stdout.write(`just-build ${cfg.tasksToRun.join(',')} done.\n`);
+    return new Promise ((resolve, reject) => {
+        let taskWatchers = cfg.tasksToRun.map(taskName => createTaskExecutor (taskName, cfg));
+        // Make commands execute sequencial by reducing the observers using Observable.concat()
+        let sequencialObserver = taskWatchers.reduce((pw1, pw2) => pw1.concat(pw2));
+        // Execute them all and handle each watch wakeup.
+        sequencialObserver.subscribe({
+            next () {
+                cfg.log(`just-build ${cfg.tasksToRun.join(',')} done.`);
+            },
+            error (err) {
+                reject(err);
+            },
+            complete () {
+                resolve();
             }
-        },
-        error (err) {
-            process.stderr.write(`Error: ${err}`);
-            process.exit(1);
-        },
-        complete (err) {
-            process.exit(0);
-        }
+        });
     });
 }
 
@@ -44,7 +44,10 @@ function executeAll (cfg) {
         dir: string,
         taskSet: Object.<string, string[]>,
         tasksToRun: string[],
-        watchMode: boolean
+        watchMode: boolean,
+        spawn: Function,
+        env: Object,
+        log: Function
     }} Configuration to execute
    @returns Observable
  */
@@ -52,7 +55,7 @@ function createTaskExecutor (taskName, cfg) {
     let commands = cfg.taskSet[taskName];
     return createChainedCommandExecutor (commands, {
         cwd: cfg.dir,
-        env: process.env
+        env: cfg.env
     }, cfg);
 }
 
@@ -68,16 +71,24 @@ function createChainedCommandExecutor (commands, spawnOptions, cfg) {
                 nextSubscription = createChainedCommandExecutor (commands, spawnOptions, cfg)
                     .subscribe({
                         next: onNext,
-                        error: observer.error,
-                        complete: observer.complete
+                        error(e) {
+                            observer.error(e);
+                        },
+                        complete() {
+                            observer.complete();
+                        }
                     });
             }
         }
         
         const subscription = nextObservable.subscribe ({
             next: onNext,
-            error: observer.error,
-            complete: observer.complete
+            error(e) {
+                observer.error(e);
+            },
+            complete() {
+                observer.complete();
+            }
         });
 
         return {
@@ -112,7 +123,8 @@ function createCommandExecutor (commands, spawnOptions, cfg) {
     const command = commands[0];
     const remainingCommands = commands.slice(1);
     return new Observable (observer => {
-        var childProcess = null;
+        var childProcess = null,
+            childProcessHasExited = false;
 
         try {
             const [cmd, ...args] = tokenize (command);
@@ -137,7 +149,7 @@ function createCommandExecutor (commands, spawnOptions, cfg) {
             } else {
                 // Ordinary command
                 let {refinedArgs, grepString, useWatch} = refineArguments(args, cfg.watchMode, command);
-                childProcess = spawn (cmd, refinedArgs, spawnOptions);
+                childProcess = (cfg.spawn)(cmd, refinedArgs, spawnOptions);
                 childProcess.on('error', err => observer.error(err));
                 if (useWatch) {
                     childProcess.stdout.on('data', data => {
@@ -147,8 +159,8 @@ function createCommandExecutor (commands, spawnOptions, cfg) {
                     });
                 }
                 childProcess.on('exit', code => {
+                    childProcessHasExited = true;
                     if (code === 0) {
-                        childProcess.
                         observer.next({commands: remainingCommands, spawnOptions});
                         observer.complete();
                     } else
@@ -163,13 +175,16 @@ function createCommandExecutor (commands, spawnOptions, cfg) {
         return {
             unsubscribe () {
                 if (childProcess) {
-                    try {
-                        childProcess.kill();
-                        childProcess = null;
+                    if (!childProcessHasExited) {
+                        try {
+                            childProcess.kill();
+                            childProcessHasExited = true;
+                        }
+                        catch (err) {
+                            console.error(err.stack)
+                        };
                     }
-                    catch (err) {
-                        console.error(err.stack)
-                    };
+                    childProcess = null;
                 }
             },
             get closed() {

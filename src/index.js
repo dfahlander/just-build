@@ -6,7 +6,7 @@ const path = require('path');
 
 function main (args) {
     const cfg = extractConfig(args);
-    executeAll (cfg);
+    return executeAll (cfg);
 }
 
 function extractConfig (args) {
@@ -43,7 +43,12 @@ function extractConfig (args) {
         dir: packageRoot,
         taskSet: taskSet,
         tasksToRun: tasksToRun,
-        watchMode: args.some(arg => arg === '--watch' || arg === '-w')
+        watchMode: args.some(arg => arg === '--watch' || arg === '-w'),
+        spawn: child_process.spawn,
+        env: process.env,
+        log(...args) {
+            console.log(...args);
+        }
     };
 }
 
@@ -56,4 +61,4 @@ function getPackageOption(args) {
     return null;
 }
 
-module.exports = { main, extractConfig };
+module.exports = { main };
