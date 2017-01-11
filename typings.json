@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "chai": "registry:npm/chai#3.5.0+20160723033700"
+  },
+  "globalDevDependencies": {
+    "mocha": "registry:dt/mocha#2.2.5+20161221010438",
+    "node": "registry:env/node#6.0.0+20170102175725"
+  }
+}

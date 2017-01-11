@@ -69,6 +69,23 @@ just-build [<options>] [<task>]
                  package.json is read.
 ```
 
+# --watch explained
+
+Babel has it, buble has it, tsc has it, rollup has it, webpack has it. I'm talking about the --watch flag. It's a great
+flag that makes the build-system start watching for file changes once it is finished building. On any
+change, these tools can incrementially build the library.
+
+just-build never watches for file system changes by itself. Instead it delegates that feature to the
+favourite build tool you use. What just-build is good at, is invoking post build-steps whenever a
+build is complete no matter if it is incremential or not.
+
+If a tool support --watch, you append `[--watch 'X']` at the end of
+the command. Then, when you execute `just-build --watch`, it will add `--watch` to each command marked with [--watch 'X'], start
+listening for 'X' from the stdout and yield the rest of the flow whenever 'X' comes out. 'X' is the part of
+a string that a build tool prints out whenever it is finished with rebuilding the lib. For tsc, it is
+'Compilation complete.'. For rollup, you're safe with 'watching'. To find out the string to use, test
+your tool with --watch and see what output it prints out when it is finished.
+
 # Sample
 
 *package.json*
@@ -187,6 +204,8 @@ except the following specialities:
 
 * "cd"  - If a line begins with "cd" the script will invoke process.chdir on the rest. Invoking [child_process.spawn()](https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options)
 would have no effect.
+* "NAME=VALUE" - You may set an environment variable like NODE_ENV="production" on a single line
+* "#" - Hash signs and everything that comes after are ignored.
 * "[--watch <grep-string>]" - If a line has a substring "[--watch .*]", it will be omitted unless --watch was given to the just-build itself.
 If so, it will only use "--watch" part (not "[", "]" or the grep-string). Then, it will start listening for *grep-string* and when a line
 contains it, it will launch a new child-process that continues the rest of the flow while still keeping the orig process alive
