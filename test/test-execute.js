@@ -1,6 +1,7 @@
 const {expect, assert} = require ('chai');
 const {executeAll} = require('../src/execute');
 const {FakeConfigHost} = require ('./test-helpers/FakeConfigHost');
+const path = require ('path');
 
 describe("execute", ()=>{
     it('should execute a simple command', ()=>{
@@ -80,12 +81,14 @@ describe("execute", ()=>{
                     cmd: "three",
                     args: ["commands to fake"],
                     options: {
-                        cwd: "/package/root/subfolder",
+                        cwd: path.resolve("/package/root", "subfolder"), // on windows c:\package\root\subfolder.
                         env: {FOO: "bar", NODE_ENV: "production"}
                     }
                 }                
             ]);
-            assert(!spawnBehaviors.simple.wasKilled, "Shouldn't have been killed");
+            assert(!spawnBehaviors.one.wasKilled, "Shouldn't have been killed");
+            assert(!spawnBehaviors.two.wasKilled, "Shouldn't have been killed");
+            assert(!spawnBehaviors.three.wasKilled, "Shouldn't have been killed");
         });
         
     });

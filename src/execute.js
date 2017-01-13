@@ -21,6 +21,7 @@ function executeAll (cfg) {
         let taskWatchers = cfg.tasksToRun.map(taskName => createTaskExecutor (taskName, cfg));
         // Make commands execute sequencial by reducing the observers using Observable.concat()
         let sequencialObserver = taskWatchers.reduce((pw1, pw2) => pw1.concat(pw2));
+        //let sequencialObserver = taskWatchers[0];
         // Execute them all and handle each watch wakeup.
         sequencialObserver.subscribe({
             next () {
@@ -53,12 +54,16 @@ function executeAll (cfg) {
  */
 function createTaskExecutor (taskName, cfg) {
     let commands = cfg.taskSet[taskName];
-    return createChainedCommandExecutor (commands, {
+
+    const source = Observable.from([{
         cwd: cfg.dir,
         env: cfg.env
-    }, cfg);
+    }]);
+
+    return commands.reduce((prev, command) => createCommandExecutor(command, prev, cfg), source);
 }
 
+/*
 function createChainedCommandExecutor (commands, spawnOptions, cfg) {
     return new Observable(observer => {
         let nextSubscription = null;
@@ -105,12 +110,14 @@ function createChainedCommandExecutor (commands, spawnOptions, cfg) {
         }
     });
 }
+*/
+
 
 /**
  * @param spawnOptions {cwd: string, env: Object}
  */
-function createCommandExecutor (commands, spawnOptions, cfg) {
-    if (commands.length === 0) {
+function createCommandExecutor (command, prevObservable, cfg) {
+    /*if (commands.length === 0) {
         // No more commands. Just return a completed observable.
         return new Observable(observer => {
             setImmediate(()=>observer.complete());
@@ -119,60 +126,69 @@ function createCommandExecutor (commands, spawnOptions, cfg) {
                 closed: true
             }
         });
-    }
-    const command = commands[0];
-    const remainingCommands = commands.slice(1);
+    }*/
+    //const command = commands[0];
+    //const remainingCommands = commands.slice(1);
+    let [cmd, ...args] = tokenize (command);
+
     return new Observable (observer => {
         var childProcess = null,
             childProcessHasExited = false;
 
-        try {
-            let [cmd, ...args] = tokenize (command);
-            if (!cmd) {
-                // Comment or empty line. ignore.
-                observer.next({commands: remainingCommands, spawnOptions});
-            } else if (cmd === 'cd') {
-                // cd
-                const newDir = path.resolve(spawnOptions.cwd, args[0]);
-                const nextSpawnOptions = clone(spawnOptions, {cwd: newDir});
-                observer.next({commands: remainingCommands, spawnOptions: nextSpawnOptions});
-            } else if (cmd.indexOf('=') !== -1 || args.length > 0 && args[0].indexOf('=') === 0) {
-                // ENV_VAR = value, ENV_VAR=value, ENV_VAR= value or ENV_VAR =value.
-                const statement = args.length > 0 ?
-                    args[0] === '=' ?
-                        cmd + args[0] + args[1] :
-                        cmd + args[0] :
-                    cmd;
-                const [variable, value] = statement.split('=');
-                const newEnv = clone(spawnOptions.env);
-                newEnv[variable] = value;
-                const nextSpawnOptions = clone(spawnOptions, {env: newEnv});
-                observer.next({commands: remainingCommands, spawnOptions: nextSpawnOptions});
-            } else {
-                // Ordinary command
-                let {refinedArgs, grepString, useWatch} = refineArguments(args, cfg.watchMode, command);
-                childProcess = (cfg.spawn)(cmd, refinedArgs, spawnOptions);
-                childProcess.on('error', err => observer.error(err));
-                if (useWatch) {
-                    childProcess.stdout.on('data', data => {
-                        if (data.indexOf(grepString) !== -1) {
-                            observer.next({commands: remainingCommands, spawnOptions});
+        var prevSubscription = prevObservable.subscribe({
+            next (spawnOptions) {
+                try { // Don't know if we're required to do try..catch here or if the framework does that for us. Read/test es-observable contract!
+                    if (!cmd) {
+                        // Comment or empty line. ignore.
+                        observer.next(spawnOptions);
+                    } else if (cmd === 'cd') {
+                        // cd
+                        const newDir = path.resolve(spawnOptions.cwd, args[0]);
+                        const nextSpawnOptions = clone(spawnOptions, {cwd: newDir});
+                        observer.next(nextSpawnOptions);
+                    } else if (cmd.indexOf('=') !== -1 || args.length > 0 && args[0].indexOf('=') === 0) {
+                        // ENV_VAR = value, ENV_VAR=value, ENV_VAR= value or ENV_VAR =value.
+                        const statement = args.length > 0 ?
+                            args[0] === '=' ?
+                                cmd + args[0] + args[1] :
+                                cmd + args[0] :
+                            cmd;
+                        const [variable, value] = statement.split('=');
+                        const newEnv = clone(spawnOptions.env);
+                        newEnv[variable] = value;
+                        const nextSpawnOptions = clone(spawnOptions, {env: newEnv});
+                        observer.next(nextSpawnOptions);
+                    } else {
+                        // Ordinary command
+                        let {refinedArgs, grepString, useWatch} = refineArguments(args, cfg.watchMode, command);
+                        childProcess = (cfg.spawn)(cmd, refinedArgs, spawnOptions);
+                        childProcess.on('error', err => observer.error(err));
+                        if (useWatch) {
+                            childProcess.stdout.on('data', data => {
+                                if (data.indexOf(grepString) !== -1) {
+                                    observer.next(spawnOptions);
+                                }
+                            });
                         }
-                    });
+                        childProcess.on('exit', code => {
+                            childProcessHasExited = true;
+                            if (code === 0) {
+                                observer.next(spawnOptions);
+                                observer.complete();
+                            } else
+                                observer.error(new Error(`Command '${command}' returned ${code}`));
+                        });                    
+                    }
+                    
+                } catch (err) {
+                    // Don't know if we're required to call setImmediate() here or if the framework does that for us. Read/test es-observable contract!
+                    setImmediate(()=>observer.error(err));
                 }
-                childProcess.on('exit', code => {
-                    childProcessHasExited = true;
-                    if (code === 0) {
-                        observer.next({commands: remainingCommands, spawnOptions});
-                        observer.complete();
-                    } else
-                        observer.error(new Error(`Command '${command}' returned ${code}`));
-                });                    
+            },
+            error(err) {
+                observer.error(err);
             }
-            
-        } catch (err) {
-            setImmediate(()=>observer.error(err));
-        }
+        })
 
         return {
             unsubscribe () {
@@ -183,14 +199,15 @@ function createCommandExecutor (commands, spawnOptions, cfg) {
                             childProcessHasExited = true;
                         }
                         catch (err) {
-                            console.error(err.stack)
+                            console.error(`Failed to kill '${command}'. Error: ${err.stack || err}`);
                         };
                     }
                     childProcess = null;
                 }
+                prevSubscription.unsubscribe();
             },
             get closed() {
-                return !childProcess || childProcess.connected;
+                return childProcessHasExited;
             }
         }
     });
