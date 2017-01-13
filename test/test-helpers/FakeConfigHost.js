@@ -7,35 +7,56 @@ class FakeConfigHost {
         this.spawnBehaviours = spawnBehaviours;
         this.commandLog = [];
         this.consoleLog = [];
+        this.killLog = [];
+        this.pidCounter = 1;
     }
     
     spawn (cmd, args, options) {
         // Push the given commands to our array.
         this.commandLog.push({cmd, args, options});
-        const behavior = this.spawnBehaviours[cmd] || {exitCode: 0, stdout: [], wasKilled: false};
+        const behavior = this.spawnBehaviours[cmd] || {exitCode: 0, stdout: []};
+        const consoleLog = this.consoleLog;
+        const killLog = this.killLog;
+        const pid = ++this.pidCounter;
+        console.log(`\t[${pid}]: ${cmd} ${args.join(' ')}`)
         // Return a fake ChildProcess:
         return {
             on (event, cb) {
                 assert (event === 'exit' || event === 'error', "Mockup only supports 'error' and 'exit' events");
                 
                 if (event === 'exit') {
-                    // Fake that the process exits successfully immediately.
-                    setImmediate(cb.bind(null, behavior.exitCode));
+                    if (!behavior.hang) {
+                        // Fake that the process exits successfully immediately.
+                        setImmediate(cb.bind(null, behavior.exitCode));
+                    }
                 }
             },
             stdout: {
                 on (event, cb) {
                     assert(event === "data", "The mockup only supports 'data' events.");
-                    setImmediate(()=>behavior.stdout.forEach(msg => cb(msg)));
+                    const messages = behavior.stdout.slice();
+                    const sendNextMessage = () => {
+                        const msg = messages.shift();
+                        console.log("\t" + msg);
+                        consoleLog.push(msg);
+                        cb(msg);
+                        if (messages.length > 0)
+                            setTimeout(sendNextMessage, 100);
+                    }
+                    if (messages.length > 0)
+                        setTimeout(sendNextMessage, 100);
                 }
             },
             kill () {
-                behavior.wasKilled = true;
-            }
+                console.log(`[${pid}] was killed.`);
+                killLog.push(pid);
+            },
+            pid: pid
         }
     }
 
     log (message) {
+        console.log("\t" + message);
         this.consoleLog.push(message);
     }
 }

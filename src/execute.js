@@ -76,11 +76,19 @@ function createCommandExecutor (command, prevObservable, hostCfg) {
     let [cmd, ...args] = tokenize (command);
 
     return new Observable (observer => {
-        var childProcess = null,
-            childProcessHasExited = false;
+        var process = null;
 
         var prevSubscription = prevObservable.subscribe({
             next (spawnOptions) {
+                if (process) {
+                    // Expects us to re-execute the command. If already executed 
+                    try {
+                        process.kill();
+                    } catch(err) {
+                        console.error(`Failed to kill '${command}'. Error: ${err}`);
+                    }
+                    process = null;
+                }
                 try { // Don't know if we're required to do try..catch here or if the framework does that for us. Read/test es-observable contract!
                     if (!cmd) {
                         // Comment or empty line. ignore.
@@ -105,20 +113,20 @@ function createCommandExecutor (command, prevObservable, hostCfg) {
                     } else {
                         // Ordinary command
                         let {refinedArgs, grepString, useWatch} = refineArguments(args, hostCfg.watchMode, command);
-                        childProcess = (hostCfg.spawn)(cmd, refinedArgs, spawnOptions);
-                        childProcess.on('error', err => observer.error(err));
+                        process = (hostCfg.spawn)(cmd, refinedArgs, spawnOptions);
+                        process.on('error', err => observer.error(err));
                         if (useWatch) {
-                            childProcess.stdout.on('data', data => {
+                            process.stdout.on('data', data => {
                                 if (data.indexOf(grepString) !== -1) {
                                     observer.next(spawnOptions);
                                 }
                             });
                         }
-                        childProcess.on('exit', code => {
-                            childProcessHasExited = true;
+                        process.on('exit', code => {
+                            process = null;
                             if (code === 0) {
                                 observer.next(spawnOptions);
-                                observer.complete();
+                                if (!hostCfg.watchMode) observer.complete();
                             } else
                                 observer.error(new Error(`Command '${command}' returned ${code}`));
                         });                    
@@ -136,22 +144,19 @@ function createCommandExecutor (command, prevObservable, hostCfg) {
 
         return {
             unsubscribe () {
-                if (childProcess) {
-                    if (!childProcessHasExited) {
-                        try {
-                            childProcess.kill();
-                            childProcessHasExited = true;
-                        }
-                        catch (err) {
-                            console.error(`Failed to kill '${command}'. Error: ${err.stack || err}`);
-                        };
+                if (process) {
+                    try {
+                        process.kill();
                     }
-                    childProcess = null;
+                    catch (err) {
+                        console.error(`Failed to kill '${command}'. Error: ${err}`);
+                    };
+                    process = null;
                 }
                 prevSubscription.unsubscribe();
             },
             get closed() {
-                return childProcessHasExited;
+                return !process && prevSubscription.closed;
             }
         }
     });
