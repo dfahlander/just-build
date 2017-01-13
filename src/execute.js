@@ -63,72 +63,16 @@ function createTaskExecutor (taskName, cfg) {
     return commands.reduce((prev, command) => createCommandExecutor(command, prev, cfg), source);
 }
 
-/*
-function createChainedCommandExecutor (commands, spawnOptions, cfg) {
-    return new Observable(observer => {
-        let nextSubscription = null;
-        let nextObservable = createCommandExecutor(commands, spawnOptions, cfg);
-
-        function onNext({commands, spawnOptions}) {
-            if (commands.length === 0) {
-                observer.next();
-            } else {
-                nextSubscription = createChainedCommandExecutor (commands, spawnOptions, cfg)
-                    .subscribe({
-                        next: onNext,
-                        error(e) {
-                            observer.error(e);
-                        },
-                        complete() {
-                            observer.complete();
-                        }
-                    });
-            }
-        }
-        
-        const subscription = nextObservable.subscribe ({
-            next: onNext,
-            error(e) {
-                observer.error(e);
-            },
-            complete() {
-                observer.complete();
-            }
-        });
-
-        return {
-            unsubscribe () {
-                if (nextSubscription) {
-                    // Cancel child build-flow.
-                    nextSubscription.unsubscribe();
-                }
-                subscription.unsubscribe();
-            },
-            get closed() {
-                return subscription.closed;
-            }
-        }
-    });
-}
-*/
-
-
 /**
- * @param spawnOptions {cwd: string, env: Object}
+ * @param command {string} Command line to execute
+ * @param prevObservable {Observable} Observable source to get values from
+ * @param hostCfg {{
+        watchMode: boolean,
+        spawn: Function,
+        log: Function
+    }} Host and Configuration.
  */
-function createCommandExecutor (command, prevObservable, cfg) {
-    /*if (commands.length === 0) {
-        // No more commands. Just return a completed observable.
-        return new Observable(observer => {
-            setImmediate(()=>observer.complete());
-            return {
-                unsubscribe() {},
-                closed: true
-            }
-        });
-    }*/
-    //const command = commands[0];
-    //const remainingCommands = commands.slice(1);
+function createCommandExecutor (command, prevObservable, hostCfg) {
     let [cmd, ...args] = tokenize (command);
 
     return new Observable (observer => {
@@ -160,8 +104,8 @@ function createCommandExecutor (command, prevObservable, cfg) {
                         observer.next(nextSpawnOptions);
                     } else {
                         // Ordinary command
-                        let {refinedArgs, grepString, useWatch} = refineArguments(args, cfg.watchMode, command);
-                        childProcess = (cfg.spawn)(cmd, refinedArgs, spawnOptions);
+                        let {refinedArgs, grepString, useWatch} = refineArguments(args, hostCfg.watchMode, command);
+                        childProcess = (hostCfg.spawn)(cmd, refinedArgs, spawnOptions);
                         childProcess.on('error', err => observer.error(err));
                         if (useWatch) {
                             childProcess.stdout.on('data', data => {
@@ -213,6 +157,16 @@ function createCommandExecutor (command, prevObservable, cfg) {
     });
 }
 
+/**
+ * Takes an array of arguments and removes "[--watch ...]" if not watchMode. Otherwise,
+ * includes "--watch".
+ * 
+ * @returns {{
+ *  refinedArgs: string,
+ *  grepString: string,
+ *  useWatch: boolean
+ * }} Returns the refined arguments together with the grepString to watch for in case useWatch is true.
+ */
 function refineArguments(args, watchMode, commandSource) {
     const refinedArgs = [];
     let hasOptionalWatchArg = false;
