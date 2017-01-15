@@ -8,7 +8,7 @@ class FakeConfigHost {
         this.commandLog = [];
         this.consoleLog = [];
         this.killLog = [];
-        this.pidCounter = 1;
+        this.pidCounter = 0;
     }
     
     spawn (cmd, args, options) {

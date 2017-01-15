@@ -184,6 +184,104 @@ describe("execute", ()=>{
     
 
     it('should execute two different watching commands with remaining simple commands and be able to watch them in parallell', ()=>{
+        const spawnBehaviors = {
+            // Make "simple" command exit 0 and output nothing to stdout.
+            "watcher1": {hang: true, stdout: ["grepstring1", "grepstring1"]},
+            "A1": {exitCode: 0, stdout: []},
+            "B1": {exitCode: 0, stdout: []},
+            "watcher2": {hang: true, stdout: ["grepstring2", "grepstring2"]},
+            "A2": {exitCode: 0, stdout: []},
+            "B2": {exitCode: 0, stdout: []},
+        };
+        const host = new FakeConfigHost({
+            dir: "/",
+            taskSet: {
+                task1: [
+                    "watcher1 a b c [--watch 'grepstring1']",
+                    "A1",
+                    "B1"
+                ],
+                task2: [
+                    "watcher2 a b c [--watch 'grepstring2']",
+                    "A2",
+                    "B2"
+                ]
+            },
+            tasksToRun: ["task1", "task2"],
+            watchMode: true,
+            env: {}
+        }, spawnBehaviors);
+
+        executeAll(host);
+        
+        return new Promise(resolve => {
+            let intervalHandle = setInterval (()=>{
+                if (host.consoleLog.filter(line => line === 'just-build task1 done.').length === 2 &&
+                    host.consoleLog.filter(line => line === 'just-build task2 done.').length === 2)
+                {
+                    clearInterval(intervalHandle);
+                    resolve();
+                }
+            }, 50);
+        }).then(()=>{
+            const commands1 = host.commandLog.filter (command => command.cmd[command.cmd.length-1] === "1");
+            const commands2 = host.commandLog.filter (command => command.cmd[command.cmd.length-1] === "2");
+            expect(commands1).to.deep.equal([
+                {
+                    cmd: "watcher1",
+                    args: ["a", "b", "c", "--watch"],
+                    options: {cwd: "/", env: {}}
+                },
+                {
+                    cmd: "A1",
+                    args: [],
+                    options: {cwd: "/", env: {}}
+                },
+                {
+                    cmd: "B1",
+                    args: [],
+                    options: {cwd: "/", env: {}}
+                },
+                {
+                    cmd: "A1",
+                    args: [],
+                    options: {cwd: "/", env: {}}
+                },
+                {
+                    cmd: "B1",
+                    args: [],
+                    options: {cwd: "/", env: {}}
+                }                
+            ]);
+            expect(commands2).to.deep.equal([
+                {
+                    cmd: "watcher2",
+                    args: ["a", "b", "c", "--watch"],
+                    options: {cwd: "/", env: {}}
+                },
+                {
+                    cmd: "A2",
+                    args: [],
+                    options: {cwd: "/", env: {}}
+                },
+                {
+                    cmd: "B2",
+                    args: [],
+                    options: {cwd: "/", env: {}}
+                },
+                {
+                    cmd: "A2",
+                    args: [],
+                    options: {cwd: "/", env: {}}
+                },
+                {
+                    cmd: "B2",
+                    args: [],
+                    options: {cwd: "/", env: {}}
+                }                
+            ]);
+            
+        });        
     });
 
     it('should cancel subsequent processes whenever main watcher emits another value', ()=>{

@@ -18,14 +18,14 @@ const { clone } = require ('./extend');
  */
 function executeAll (cfg) {
     return new Promise ((resolve, reject) => {
-        let taskWatchers = cfg.tasksToRun.map(taskName => createTaskExecutor (taskName, cfg));
-        // Make commands execute sequencial by reducing the observers using Observable.concat()
-        let sequencialObserver = taskWatchers.reduce((pw1, pw2) => pw1.concat(pw2));
-        //let sequencialObserver = taskWatchers[0];
+        let taskWatcher = createTaskExecutor (cfg);
         // Execute them all and handle each watch wakeup.
-        sequencialObserver.subscribe({
-            next () {
-                cfg.log(`just-build ${cfg.tasksToRun.join(',')} done.`);
+        taskWatcher.subscribe({
+            next ({command, exitCode}) {
+                if (exitCode == 0)
+                    cfg.log(`just-build ${cfg.tasksToRun.join(',')} done.`);
+                else 
+                    cfg.log(`just-build ${cfg.tasksToRun.join(',')} failed. '${command}' returned ${exitCode}`);
             },
             error (err) {
                 reject(err);
@@ -52,15 +52,22 @@ function executeAll (cfg) {
     }} Configuration to execute
    @returns Observable
  */
-function createTaskExecutor (taskName, cfg) {
-    let commands = cfg.taskSet[taskName];
+function createTaskExecutor (cfg) {
+    let allCommands = [];
 
+    cfg.tasksToRun.forEach(taskName => {
+        var commands = cfg.taskSet[taskName];
+        if (!commands) throw new Error(`No such task: ${taskName}`);
+        allCommands = allCommands.concat(commands);
+    });
+    
     const source = Observable.from([{
         cwd: cfg.dir,
-        env: cfg.env
+        env: cfg.env,
+        exitCode: 0
     }]);
 
-    return commands.reduce((prev, command) => createCommandExecutor(command, prev, cfg), source);
+    return allCommands.reduce((prev, command) => createCommandExecutor(command, prev, cfg), source);
 }
 
 /**
@@ -76,10 +83,22 @@ function createCommandExecutor (command, prevObservable, hostCfg) {
     let [cmd, ...args] = tokenize (command);
 
     return new Observable (observer => {
+        var prevComplete = false;
         var process = null;
+        var processComplete = false;
 
         var prevSubscription = prevObservable.subscribe({
-            next (spawnOptions) {
+            next (envProps) {
+                if (envProps.exitCode) {
+                    // Previous process exited with non-zero.
+                    // Should not continue flow. Instead, forward the error all the
+                    // way to the end listener. Note: This may happen several times and does not
+                    // mean that observable.error() should be called. Reason: error means the end
+                    // of the whole stream while this is not nescessarily so, as a source may be
+                    // continously watching while a subsequent process failed to do it's job.
+                    observer.next(envProps);
+                    return;
+                }
                 if (process) {
                     // Expects us to re-execute the command. If already executed 
                     try {
@@ -88,16 +107,23 @@ function createCommandExecutor (command, prevObservable, hostCfg) {
                         console.error(`Failed to kill '${command}'. Error: ${err}`);
                     }
                     process = null;
+                    processComplete = false;
                 }
                 try { // Don't know if we're required to do try..catch here or if the framework does that for us. Read/test es-observable contract!
                     if (!cmd) {
                         // Comment or empty line. ignore.
-                        observer.next(spawnOptions);
+                        observer.next(clone(envProps, {
+                            command: command,
+                            exitCode: 0
+                        }));
                     } else if (cmd === 'cd') {
                         // cd
-                        const newDir = path.resolve(spawnOptions.cwd, args[0]);
-                        const nextSpawnOptions = clone(spawnOptions, {cwd: newDir});
-                        observer.next(nextSpawnOptions);
+                        const newDir = path.resolve(envProps.cwd, args[0]);
+                        observer.next(clone(envProps, {
+                            command: command,
+                            exitCode: 0,
+                            cwd: newDir,
+                        }));
                     } else if (cmd.indexOf('=') !== -1 || args.length > 0 && args[0].indexOf('=') === 0) {
                         // ENV_VAR = value, ENV_VAR=value, ENV_VAR= value or ENV_VAR =value.
                         const statement = args.length > 0 ?
@@ -106,30 +132,44 @@ function createCommandExecutor (command, prevObservable, hostCfg) {
                                 cmd + args[0] :
                             cmd;
                         const [variable, value] = statement.split('=');
-                        const newEnv = clone(spawnOptions.env);
+                        const newEnv = clone(envProps.env);
                         newEnv[variable] = value;
-                        const nextSpawnOptions = clone(spawnOptions, {env: newEnv});
-                        observer.next(nextSpawnOptions);
+                        observer.next(clone(envProps, {
+                            command: command,
+                            exitCode: 0,
+                            env: newEnv
+                        }));
                     } else {
                         // Ordinary command
                         let {refinedArgs, grepString, useWatch} = refineArguments(args, hostCfg.watchMode, command);
-                        process = (hostCfg.spawn)(cmd, refinedArgs, spawnOptions);
+                        process = (hostCfg.spawn)(
+                            cmd,
+                            refinedArgs, {
+                                cwd: envProps.cwd,
+                                env: envProps.env
+                            });
+
                         process.on('error', err => observer.error(err));
                         if (useWatch) {
                             process.stdout.on('data', data => {
                                 if (data.indexOf(grepString) !== -1) {
-                                    observer.next(spawnOptions);
+                                    observer.next(clone(envProps, {
+                                        command: command,
+                                        exitCode: undefined
+                                    }));
                                 }
                             });
                         }
                         process.on('exit', code => {
                             process = null;
-                            if (code === 0) {
-                                observer.next(spawnOptions);
-                                if (!hostCfg.watchMode) observer.complete();
-                            } else
-                                observer.error(new Error(`Command '${command}' returned ${code}`));
-                        });                    
+                            processComplete = true;
+                            observer.next(clone(envProps, {
+                                command: command,
+                                exitCode: code
+                            }));
+                            if (prevComplete)
+                                observer.complete();
+                        });
                     }
                     
                 } catch (err) {
@@ -139,6 +179,11 @@ function createCommandExecutor (command, prevObservable, hostCfg) {
             },
             error(err) {
                 observer.error(err);
+            },
+            complete() {
+                prevComplete = true;
+                if (processComplete)
+                    observer.complete();
             }
         })
 
