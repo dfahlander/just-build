@@ -86,7 +86,6 @@ describe("execute", ()=>{
             ]);
             expect(host.killLog).to.deep.equal([], "Shouldn't have been killed");
         });
-        
     });
 
     it('should execute a watching command and two remaining simple commands', ()=>{

@@ -9,6 +9,13 @@ function main (args) {
     return executeAll (cfg);
 }
 
+/* TODO:
+ * Tweak tests to test things in single task but parallell.
+ V Change how executeAll() executes several tasks. Promise.all() instead.
+ V Set env to include node_modules/.bin if not already included.
+ * Pipe stdout and stderr to us for all processes.
+*/
+
 function extractConfig (args) {
     args = args.slice(2);
     const pkg = getPackageOption(args) || process.cwd();
@@ -34,9 +41,16 @@ function extractConfig (args) {
 
     let tasksToRun = args.filter(arg => arg.indexOf('-') !== 0);
     if (tasksToRun.length === 0) {
-        if (!taskSet.default)
+        if (!taskSet["default"])
             throw new Error (`No default task exists in ${configFile}`);
-        tasksToRun = [taskSet.default];
+        tasksToRun = ["default"];
+    }
+
+    // Make sure packageRoot/node_modules/.bin is part of PATH.
+    let PATH = process.env.PATH || "";
+    const node_modules_bin = path.resolve(packageRoot, 'node_modules/.bin');
+    if (PATH.indexOf(`node_modules${path.sep}.bin`) === -1) {
+        PATH = `${PATH}${path.delimiter}${node_modules_bin}`;
     }
 
     return {

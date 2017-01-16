@@ -1,23 +1,18 @@
-const {assert} = require ('chai');
+const {assert} = require('chai');
 const {extend} = require('../../src/extend');
 
-class FakeConfigHost {
-    constructor (template, spawnBehaviours) {
-        extend(this, template);
-        this.spawnBehaviours = spawnBehaviours;
-        this.commandLog = [];
-        this.consoleLog = [];
-        this.killLog = [];
-        this.pidCounter = 0;
-    }
+function FakeConfigHost (template, spawnBehaviours) {
+    extend(this, template);
+    var commandLog = this.commandLog = [];
+    var consoleLog = this.consoleLog = [];
+    var killLog = this.killLog = [];
+    var pidCounter = 0;
     
-    spawn (cmd, args, options) {
+    this.spawn = (cmd, args, options) => {
         // Push the given commands to our array.
-        this.commandLog.push({cmd, args, options});
-        const behavior = this.spawnBehaviours[cmd] || {exitCode: 0, stdout: []};
-        const consoleLog = this.consoleLog;
-        const killLog = this.killLog;
-        const pid = ++this.pidCounter;
+        commandLog.push({cmd, args, options});
+        const behavior = spawnBehaviours[cmd] || {exitCode: 0, stdout: []};
+        const pid = ++pidCounter;
         console.log(`\t[${pid}]: ${cmd} ${args.join(' ')}`)
         // Return a fake ChildProcess:
         return {
@@ -55,9 +50,9 @@ class FakeConfigHost {
         }
     }
 
-    log (message) {
+    this.log = message => {
         console.log("\t" + message);
-        this.consoleLog.push(message);
+        consoleLog.push(message);
     }
 }
 

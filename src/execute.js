@@ -17,75 +17,76 @@ const { clone } = require ('./extend');
     }} Configuration to execute
  */
 function executeAll (cfg) {
-    return new Promise ((resolve, reject) => {
-        let taskWatcher = createTaskExecutor (cfg);
-        // Execute them all and handle each watch wakeup.
-        taskWatcher.subscribe({
-            next ({command, exitCode}) {
-                if (exitCode == 0)
-                    cfg.log(`just-build ${cfg.tasksToRun.join(',')} done.`);
-                else 
-                    cfg.log(`just-build ${cfg.tasksToRun.join(',')} failed. '${command}' returned ${exitCode}`);
-            },
-            error (err) {
-                reject(err);
-            },
-            complete () {
-                resolve();
-            }
-        });
-    });
+    const {dir, taskSet, tasksToRun, watchMode, spawn, env, log} = cfg;
+
+    return Promise.all(tasksToRun.map(taskName =>
+        new Promise((resolve, reject) => {
+            const commandList = taskSet[taskName];
+            if (!commandList)
+                throw new Error (`No such task name: ${taskName} was configured`);
+
+            const observable = createSequencialCommandExecutor (
+                commandList,
+                dir,
+                env,
+                watchMode,
+                {spawn, log});
+            
+            observable.subscribe({
+                next ({command, exitCode}) {
+                    if (exitCode == 0)
+                        cfg.log(`just-build ${cfg.tasksToRun.join(',')} done.`);
+                    else 
+                        cfg.log(`just-build ${cfg.tasksToRun.join(',')} failed. '${command}' returned ${exitCode}`);
+                },
+                error (err) {
+                    reject(err);
+                },
+                complete () {
+                    resolve();
+                }                
+            });
+        })
+    ));
 }
 
 /** 
- * Execute the build tasks.
+ * Create an Observable that would execute a sequence of commands.
  *
- * @param taskName {string} Name of task to execute 
- * @param cfg {{
-        dir: string,
-        taskSet: Object.<string, string[]>,
-        tasksToRun: string[],
-        watchMode: boolean,
-        spawn: Function,
-        env: Object,
-        log: Function
-    }} Configuration to execute
+ * @param commands {string[]} A sequence of commands to execute
+ * @param workingDir {string} Initial Working Directory
+ * @param envVars {Object} Initial environment variables
+ * @param watchMode {boolean} Whether to execute watchers or not
+ * @param host {{spawn: Function, log: Function}} Mockable host environment (mimicking child_process.spawn() and console.log())
    @returns Observable
  */
-function createTaskExecutor (cfg) {
-    let allCommands = [];
-
-    cfg.tasksToRun.forEach(taskName => {
-        var commands = cfg.taskSet[taskName];
-        if (!commands) throw new Error(`No such task: ${taskName}`);
-        allCommands = allCommands.concat(commands);
-    });
-    
+function createSequencialCommandExecutor (commands, workingDir, envVars, watchMode, host) {
     const source = Observable.from([{
-        cwd: cfg.dir,
-        env: cfg.env,
+        cwd: workingDir,
+        env: envVars,
         exitCode: 0
     }]);
 
-    return allCommands.reduce((prev, command) => createCommandExecutor(command, prev, cfg), source);
+    return commands.reduce((prev, command) =>
+        createCommandExecutor(command, prev, watchMode, host), source);
 }
+
 
 /**
  * @param command {string} Command line to execute
  * @param prevObservable {Observable} Observable source to get values from
- * @param hostCfg {{
-        watchMode: boolean,
+ * @param watchMode {boolean} Whether to invoke --watch argument 
+ * @param host {{
         spawn: Function,
         log: Function
     }} Host and Configuration.
  */
-function createCommandExecutor (command, prevObservable, hostCfg) {
+function createCommandExecutor (command, prevObservable, watchMode, host) {
     let [cmd, ...args] = tokenize (command);
 
     return new Observable (observer => {
         var prevComplete = false;
         var process = null;
-        var processComplete = false;
 
         var prevSubscription = prevObservable.subscribe({
             next (envProps) {
@@ -97,17 +98,18 @@ function createCommandExecutor (command, prevObservable, hostCfg) {
                     // of the whole stream while this is not nescessarily so, as a source may be
                     // continously watching while a subsequent process failed to do it's job.
                     observer.next(envProps);
+                    if (prevComplete) observer.complete();
                     return;
                 }
                 if (process) {
-                    // Expects us to re-execute the command. If already executed 
+                    // We've created a process as a response to a previous next().
+                    // We are expected to re-execute the command.
                     try {
-                        process.kill();
+                        process.kill('SIGTERM'); // Or should we use SIGINT ('CTRL-C')
                     } catch(err) {
                         console.error(`Failed to kill '${command}'. Error: ${err}`);
                     }
                     process = null;
-                    processComplete = false;
                 }
                 try { // Don't know if we're required to do try..catch here or if the framework does that for us. Read/test es-observable contract!
                     if (!cmd) {
@@ -141,34 +143,32 @@ function createCommandExecutor (command, prevObservable, hostCfg) {
                         }));
                     } else {
                         // Ordinary command
-                        let {refinedArgs, grepString, useWatch} = refineArguments(args, hostCfg.watchMode, command);
-                        process = (hostCfg.spawn)(
+                        let {refinedArgs, grepString, useWatch} = refineArguments(args, watchMode, command);
+                        process = (host.spawn)(
                             cmd,
                             refinedArgs, {
                                 cwd: envProps.cwd,
                                 env: envProps.env
                             });
 
-                        process.on('error', err => observer.error(err));
+                        process.on('error', err => observer.error(err)); // Correct? Or just 
                         if (useWatch) {
                             process.stdout.on('data', data => {
                                 if (data.indexOf(grepString) !== -1) {
                                     observer.next(clone(envProps, {
                                         command: command,
-                                        exitCode: undefined
+                                        exitCode: undefined // No real exit code yet. Handled as exitCode 0.
                                     }));
                                 }
                             });
                         }
                         process.on('exit', code => {
                             process = null;
-                            processComplete = true;
                             observer.next(clone(envProps, {
                                 command: command,
                                 exitCode: code
                             }));
-                            if (prevComplete)
-                                observer.complete();
+                            if (prevComplete) observer.complete();
                         });
                     }
                     
@@ -182,8 +182,7 @@ function createCommandExecutor (command, prevObservable, hostCfg) {
             },
             complete() {
                 prevComplete = true;
-                if (processComplete)
-                    observer.complete();
+                if (!process) observer.complete();
             }
         })
 
@@ -191,11 +190,18 @@ function createCommandExecutor (command, prevObservable, hostCfg) {
             unsubscribe () {
                 if (process) {
                     try {
-                        process.kill();
+                        process.kill('SIGTERM'); // Or should we use 'SIGINT' (CTRL-C) ?
                     }
                     catch (err) {
                         console.error(`Failed to kill '${command}'. Error: ${err}`);
                     };
+                    /* Should we remove "exit", "error" and "data" listeners?
+                    if (process.removeListener) {
+                        if (process.stdout.removeListener) {
+                            
+                        }
+                    }
+                    */                        
                     process = null;
                 }
                 prevSubscription.unsubscribe();
