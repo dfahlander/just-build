@@ -173,8 +173,7 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                     }
                     
                 } catch (err) {
-                    // Don't know if we're required to call setImmediate() here or if the framework does that for us. Read/test es-observable contract!
-                    setImmediate(()=>observer.error(err));
+                    observer.error(err);
                 }
             },
             error(err) {

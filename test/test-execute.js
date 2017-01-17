@@ -1,21 +1,19 @@
 const {expect, assert} = require ('chai');
 const {executeAll} = require('../src/execute');
 const {FakeConfigHost} = require ('./test-helpers/FakeConfigHost');
+const { Observable } = require ('../bundledExternals/bundle');
+const { Subject } = require ('./test-helpers/subject');
 const path = require ('path');
 
 describe("execute", ()=>{
     it('should execute a simple command', ()=>{
-        const spawnBehaviors = {
-            // Make "simple" command exit 0 and output nothing to stdout.
-            "simple": {exitCode: 0, stdout: []}
-        };
         const host = new FakeConfigHost({
             dir: "/package/root",
             taskSet: {default: ["simple command"]},
             tasksToRun: ["default"],
             watchMode: false,
             env: {FOO: "bar"}
-        }, spawnBehaviors);
+        });
 
         return executeAll(host).then(()=>{
             expect(host.commandLog).to.deep.equal([
@@ -36,12 +34,6 @@ describe("execute", ()=>{
     });
 
     it('should execute several commands, modify env and change directory', ()=>{
-        const spawnBehaviors = {
-            // Make "simple" command exit 0 and output nothing to stdout.
-            "one": {exitCode: 0, stdout: []},
-            "two": {exitCode: 0, stdout: []},
-            "three": {exitCode: 0, stdout: []},
-        };
         const host = new FakeConfigHost({
             dir: "/package/root",
             taskSet: {default: [
@@ -55,7 +47,7 @@ describe("execute", ()=>{
             tasksToRun: ["default"],
             watchMode: false,
             env: {FOO: "bar"}
-        }, spawnBehaviors);
+        });
 
         return executeAll(host).then(()=>{
             expect(host.commandLog).to.deep.equal([
@@ -89,12 +81,6 @@ describe("execute", ()=>{
     });
 
     it('should execute a watching command and two remaining simple commands', ()=>{
-        const spawnBehaviors = {
-            // Make "simple" command exit 0 and output nothing to stdout.
-            "watcher": {hang: true, stdout: ["some debug output", "Compilation complete.", "some warning", "Compilation complete."]},
-            "two": {exitCode: 0, stdout: []},
-            "three": {exitCode: 0, stdout: []},
-        };
         const host = new FakeConfigHost({
             dir: "/",
             taskSet: {default: [
@@ -105,185 +91,60 @@ describe("execute", ()=>{
             tasksToRun: ["default"],
             watchMode: true,
             env: {}
-        }, spawnBehaviors);
+        }, {openCommandStream: true});
 
+        const executeAllPromise = executeAll(host);
 
-        executeAll(host);
-        
-        return new Promise(resolve => {
-            let intervalHandle = setInterval (()=>{
-                if (host.consoleLog.filter(line => line === 'just-build default done.').length === 2) {
-                    clearInterval(intervalHandle);
-                    resolve();
-                }
-            }, 50);
+        let watchProcess = null;
+        return host.commandStream.next().then(({value, done})=>{
+            const {cmd, args, options, process} = value;
+            expect(cmd).to.equal("watcher");
+            expect(args).to.deep.equal(["a", "b", "c", "--watch"]);
+            watchProcess = process;
+            process.stdout.trigger('data', 'some debug output'); // Should not wake up.
+            expect(host.commandLog.length).to.equal(1, "Still no extra command triggered");
+            process.stdout.trigger('data', 'Compilation complete.');
+            return host.commandStream.next();
+        }).then(({value, done}) => {
+            const {cmd, args, options, process} = value;
+            expect(cmd).to.equal("two");
+            expect(host.commandLog.length).to.equal(2);
+            process.trigger('exit', 0);
+            return host.commandStream.next();
+        }).then(({value, done}) => {
+            const {cmd, args, options, process} = value;
+            expect(cmd).to.equal("three");
+            expect(host.commandLog.length).to.equal(3);
+            assert(!host.consoleLog.includes('just-build default done.'), "Should not yet have fulfilled a complete flow.");
+            process.trigger('exit', 0);
+            // Now trigger some more output to the watch process again to verify it can reexeute two,three:
+            watchProcess.stdout.trigger('data', 'Compilation complete.');
+            return host.commandStream.next();
+        }).then(({value, done}) => {
+            const {cmd, args, options, process} = value;
+            assert(host.consoleLog.includes('just-build default done.'), "Should now have completed the flow once");
+            expect(cmd).to.equal("two");
+            expect(host.commandLog.length).to.equal(4);
+            process.trigger('exit', 0);
+            return host.commandStream.next();
+        }).then(({value, done}) => {
+            const {cmd, args, options, process} = value;
+            expect(cmd).to.equal("three");
+            expect(host.commandLog.length).to.equal(5);
+            // Now don't yet exit this process. Instead verify it is killed once the flow is restarted again
+            watchProcess.stdout.trigger('data', 'Once again, Compilation complete. This time before three was done.');
+            return host.commandStream.next();
+        }).then(({value, done}) => {
+            expect(host.killLog, "no one killed yet").to.be.empty;
+            value.process.trigger('exit', 0); // Exit "two" to trigger the killing of "three"
+            return host.commandStream.next();
+        }).then(({value, done}) => {
+            expect(host.killLog.length).to.equal(1, "Now someone has been killed ('three')");
+            value.process.trigger('exit', 0);
+            watchProcess.trigger('exit', 1); // Now end the watcher to make the final Promise resolve.
+            return executeAllPromise; // Wait for exeuteAll to finally complete.
         }).then(()=>{
-            expect(host.commandLog).to.deep.equal([
-                {
-                    cmd: "watcher",
-                    args: ["a", "b", "c", "--watch"],
-                    options: {cwd: "/", env: {}}
-                },
-                {
-                    cmd: "two",
-                    args: [],
-                    options: {cwd: "/", env: {}}
-                },
-                {
-                    cmd: "three",
-                    args: [],
-                    options: {cwd: "/", env: {}}
-                },
-                {
-                    cmd: "two",
-                    args: [],
-                    options: {cwd: "/", env: {}}
-                },
-                {
-                    cmd: "three",
-                    args: [],
-                    options: {cwd: "/", env: {}}
-                }                
-            ]);
-            expect(host.killLog).to.deep.equal([], "Shouldn't have been killed");
+            expect(host.consoleLog[host.consoleLog.length-1]).to.contain('just-build default failed.');
         });
-    });
-
-    it('should not execute remaining commands if a command fails with error exit code', ()=>{
-        const spawnBehaviors = {
-            // Make "simple" command exit 0 and output nothing to stdout.
-            "one": {exitCode: 1, stdout: []},
-            "two": {exitCode: 0, stdout: []},
-            "three": {exitCode: 0, stdout: []},
-        };
-        const host = new FakeConfigHost({
-            dir: "/",
-            taskSet: {default: [
-                "one",
-                "two",
-                "three"
-            ]},
-            tasksToRun: ["default"],
-            watchMode: false,
-            env: {}
-        }, spawnBehaviors);
-
-
-        return executeAll(host).catch(()=>{}).then(()=>{
-            expect(host.commandLog).to.deep.equal([
-                {
-                    cmd: "one",
-                    args: [],
-                    options: {cwd: "/", env: {}}
-                }                
-            ]);
-            expect(host.killLog).to.deep.equal([], "Shouldn't have been killed");
-        });
-    });
-    
-
-    it('should execute two different watching commands with remaining simple commands and be able to watch them in parallell', ()=>{
-        const spawnBehaviors = {
-            // Make "simple" command exit 0 and output nothing to stdout.
-            "watcher1": {hang: true, stdout: ["grepstring1", "grepstring1"]},
-            "A1": {exitCode: 0, stdout: []},
-            "B1": {exitCode: 0, stdout: []},
-            "watcher2": {hang: true, stdout: ["grepstring2", "grepstring2"]},
-            "A2": {exitCode: 0, stdout: []},
-            "B2": {exitCode: 0, stdout: []},
-        };
-        const host = new FakeConfigHost({
-            dir: "/",
-            taskSet: {
-                task1: [
-                    "watcher1 a b c [--watch 'grepstring1']",
-                    "A1",
-                    "B1"
-                ],
-                task2: [
-                    "watcher2 a b c [--watch 'grepstring2']",
-                    "A2",
-                    "B2"
-                ]
-            },
-            tasksToRun: ["task1", "task2"],
-            watchMode: true,
-            env: {}
-        }, spawnBehaviors);
-
-        executeAll(host);
-        
-        return new Promise(resolve => {
-            let intervalHandle = setInterval (()=>{
-                if (host.consoleLog.filter(line => line === 'just-build task1 done.').length === 2 &&
-                    host.consoleLog.filter(line => line === 'just-build task2 done.').length === 2)
-                {
-                    clearInterval(intervalHandle);
-                    resolve();
-                }
-            }, 50);
-        }).then(()=>{
-            const commands1 = host.commandLog.filter (command => command.cmd[command.cmd.length-1] === "1");
-            const commands2 = host.commandLog.filter (command => command.cmd[command.cmd.length-1] === "2");
-            expect(commands1).to.deep.equal([
-                {
-                    cmd: "watcher1",
-                    args: ["a", "b", "c", "--watch"],
-                    options: {cwd: "/", env: {}}
-                },
-                {
-                    cmd: "A1",
-                    args: [],
-                    options: {cwd: "/", env: {}}
-                },
-                {
-                    cmd: "B1",
-                    args: [],
-                    options: {cwd: "/", env: {}}
-                },
-                {
-                    cmd: "A1",
-                    args: [],
-                    options: {cwd: "/", env: {}}
-                },
-                {
-                    cmd: "B1",
-                    args: [],
-                    options: {cwd: "/", env: {}}
-                }                
-            ]);
-            expect(commands2).to.deep.equal([
-                {
-                    cmd: "watcher2",
-                    args: ["a", "b", "c", "--watch"],
-                    options: {cwd: "/", env: {}}
-                },
-                {
-                    cmd: "A2",
-                    args: [],
-                    options: {cwd: "/", env: {}}
-                },
-                {
-                    cmd: "B2",
-                    args: [],
-                    options: {cwd: "/", env: {}}
-                },
-                {
-                    cmd: "A2",
-                    args: [],
-                    options: {cwd: "/", env: {}}
-                },
-                {
-                    cmd: "B2",
-                    args: [],
-                    options: {cwd: "/", env: {}}
-                }                
-            ]);
-            
-        });        
-    });
-
-    it('should cancel subsequent processes whenever main watcher emits another value', ()=>{
-
     });
 });

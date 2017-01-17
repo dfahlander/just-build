@@ -9,9 +9,9 @@ function extend(obj, extension) {
 function clone (obj, extension) {
     let clone = {};
     Object.keys(obj).forEach(key => {
-        clone[key] = extension && extension.hasOwnProperty(key) ?
-            extension[key] : obj[key];
+        clone[key] = obj[key];
     });
+    if (extension) extend(clone, extension);
     return clone;
 }
 
