@@ -16,8 +16,8 @@
   "bugs": {
     "url": "https://github.com/dfahlander/just-build/issues"
   },
-  "main": "dist/index.js",
-  "bin": "dist/cli.js",
+  "main": "./dist/index.js",
+  "bin": "./bin/just-build",
   "scripts": {
     "prebuild": "cd bundledExternals && rollup -c",
     "build": "buble src -o dist",
