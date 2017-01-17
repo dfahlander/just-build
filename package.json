@@ -1,6 +1,6 @@
 {
   "name": "just-build",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Simplistic task runner with specific support for --watch.",
   "author": "David Fahlander <https://github.com/dfahlander>",
   "license": "Apache-2.0",
@@ -19,7 +19,7 @@
   "main": "dist/index.js",
   "bin": "dist/cli.js",
   "scripts": {
-    "postinstall": "cd bundledExternals && rollup -c",
+    "prebuild": "cd bundledExternals && rollup -c",
     "build": "buble src -o dist",
     "test": "mocha"
   },
