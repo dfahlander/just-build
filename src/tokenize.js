@@ -38,7 +38,7 @@ function tokenize (cmd) {
             nextToken = null;
             continue;
         }
-        if (ch === '"' || ch === "'") {
+        if (!quote && (ch === '"' || ch === "'")) {
             // String begin
             quote = ch;
             continue;

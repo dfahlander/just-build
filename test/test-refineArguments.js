@@ -16,4 +16,12 @@ describe("refineArguments", ()=>{
         expect(refinedArgs).to.deep.equal(["one", "two"]);
         expect(useWatch).to.be.false;        
     });
+    it('should accept string args', ()=>{
+        const command = "node -p '(\"hello\")'";
+        const [cmd, ...args] = tokenize(command);
+        expect(cmd).to.equal('node');
+        expect(args).to.deep.equal(['-p', '("hello")']);
+        const {grepString, refinedArgs, useWatch} = refineArguments(args, false, command);
+        expect(refinedArgs).to.deep.equal(["-p", '("hello")']);
+    });
 });

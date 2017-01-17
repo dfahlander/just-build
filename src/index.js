@@ -5,8 +5,10 @@ const fs = require('fs');
 const path = require('path');
 
 function main (args) {
-    const cfg = extractConfig(args);
-    return executeAll (cfg);
+    return Promise.resolve().then(()=>{
+        const cfg = extractConfig(args);
+        return executeAll (cfg);
+    });
 }
 
 /* TODO:
@@ -27,7 +29,7 @@ function extractConfig (args) {
     const configFile = pkgIsDir ?
         path.resolve(packageRoot, 'package.json') :
         pkg;
-    if (!fs.exists(configFile))
+    if (!fs.existsSync(configFile))
         throw new Error(`File not found: ${configFile}`);
 
     const cfg = JSON.parse(fs.readFileSync(configFile));

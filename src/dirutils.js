@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 
 /** Navigates upwards to the closest dir that contains a 'package.json'.
  * @param dir {string} Directory to start from.
@@ -12,5 +13,4 @@ function getPackageRoot (dir) {
     return (lastDir === dir ? null : dir);
 }
 
-module.exports = getPackageRoot;
-
+module.exports = {getPackageRoot};

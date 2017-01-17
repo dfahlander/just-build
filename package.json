@@ -1,6 +1,6 @@
 {
   "name": "just-build",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Simplistic task runner with specific support for --watch.",
   "author": "David Fahlander <https://github.com/dfahlander>",
   "license": "Apache-2.0",
