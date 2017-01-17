@@ -60,4 +60,14 @@ function tokenize (cmd) {
     return result;
 }
 
-module.exports = { tokenize };
+function surroundWithQuotes(str) {
+    let result = "";
+    for (let i=0, len = str.length; i < len; ++i) {
+        const ch = str[i];
+        if (ch === '"' || ch === '\\') result += "\\";
+        result += ch;
+    }
+    return `"${result}"`;
+}
+
+module.exports = { tokenize, surroundWithQuotes };

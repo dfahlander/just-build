@@ -11,13 +11,6 @@ function main (args) {
     });
 }
 
-/* TODO:
- * Tweak tests to test things in single task but parallell.
- V Change how executeAll() executes several tasks. Promise.all() instead.
- V Set env to include node_modules/.bin if not already included.
- * Pipe stdout and stderr to us for all processes.
-*/
-
 function extractConfig (args) {
     args = args.slice(2);
     const pkg = getPackageOption(args) || process.cwd();

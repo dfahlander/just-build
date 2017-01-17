@@ -1,6 +1,6 @@
 const { Observable } = require ('../bundledExternals/bundle');
 const path = require ('path');
-const { tokenize } = require ('./tokenize');
+const { tokenize, surroundWithQuotes } = require ('./tokenize');
 const { clone } = require ('./extend');
 
 /** 
@@ -37,9 +37,9 @@ function executeAll (cfg) {
         observable.subscribe({
             next ({command, exitCode}) {
                 if (exitCode == 0)
-                    cfg.log(`just-build ${cfg.tasksToRun.join(',')} done.`);
+                    cfg.log(`just-build ${cfg.tasksToRun.join(' ')} done.`);
                 else 
-                    cfg.log(`just-build ${cfg.tasksToRun.join(',')} failed. ${command} returned ${exitCode}`);
+                    cfg.log(`just-build ${cfg.tasksToRun.join(' ')} failed. ${command} returned ${exitCode}`);
             },
             error (err) {
                 reject(err);
@@ -181,6 +181,7 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                 try { // Don't know if we're required to do try..catch here or if the framework does that for us. Read/test es-observable contract!
                     if (!cmd) {
                         // Comment or empty line. ignore.
+                        host.log(`> ${command}`);
                         observer.next(clone(envProps, {
                             command: command,
                             exitCode: 0
@@ -188,6 +189,7 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                     } else if (cmd === 'cd') {
                         // cd
                         const newDir = path.resolve(envProps.cwd, args[0]);
+                        host.log(`> cd ${args[0]}`);
                         observer.next(clone(envProps, {
                             command: command,
                             exitCode: 0,
@@ -203,6 +205,7 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                         const [variable, value] = statement.split('=');
                         const newEnv = clone(envProps.env);
                         newEnv[variable] = value;
+                        host.log(`> ${variable}=${surroundWithQuotes(value)}`);
                         observer.next(clone(envProps, {
                             command: command,
                             exitCode: 0,
@@ -211,13 +214,14 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                     } else {
                         // Ordinary command
                         let {refinedArgs, grepString, useWatch} = refineArguments(args, watchMode, command);
-                        host.log(`> ${command}`);
+                        host.log(`> ${surroundWithQuotes(cmd)} ${refinedArgs.map(surroundWithQuotes).join(' ')}`);
                         childProcess = (host.spawn)(
-                            cmd,
-                            refinedArgs, {
+                            surroundWithQuotes(cmd),
+                            refinedArgs.map(surroundWithQuotes), {
                                 cwd: envProps.cwd,
-                                env: envProps.env
-                        });
+                                env: envProps.env,
+                                shell: true
+                            });
                         
                         childProcess.stdout.pipe(process.stdout);
                         childProcess.stderr.pipe(process.stderr);
