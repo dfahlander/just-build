@@ -2,6 +2,8 @@ const { Observable } = require ('../bundledExternals/bundle');
 const path = require ('path');
 const { tokenize, surroundWithQuotes } = require ('./tokenize');
 const { clone } = require ('./extend');
+const { extractConfig } = require ('./extract-config');
+const { extend } = require('./extend');
 
 /** 
  * Execute the build tasks.
@@ -15,26 +17,12 @@ const { clone } = require ('./extend');
         env: Object,
         log: Function
     }} Configuration to execute
+    @return Promise
  */
+
 function executeAll (cfg) {
-    const {dir, taskSet, tasksToRun, watchMode, spawn, env, log} = cfg;
-
     return new Promise((resolve, reject) => {
-        const tasks = tasksToRun.map(taskName => {
-            const commandList = taskSet[taskName];
-            if (!commandList)
-                throw new Error (`No such task name: ${taskName} was configured`);
-            return commandList;
-        });
-
-        const observable = createParallellCommandsExecutor (
-            tasks,
-            dir,
-            env,
-            watchMode,
-            {spawn, log});
-
-        observable.subscribe({
+        createObservable(cfg).subscribe({
             next ({command, exitCode}) {
                 if (exitCode == 0)
                     cfg.log(`just-build ${cfg.tasksToRun.join(' ')} done.`);
@@ -49,22 +37,38 @@ function executeAll (cfg) {
             }                
         });
     });
+}
 
-    return Promise.all(tasksToRun.map(taskName =>
-        new Promise((resolve, reject) => {
-            const commandList = taskSet[taskName];
-            if (!commandList)
-                throw new Error (`No such task name: ${taskName} was configured`);
+/** 
+ * Create a build-task executer as an Observable
+ * 
+ * @param cfg {{
+        dir: string,
+        taskSet: Object.<string, string[]>,
+        tasksToRun: string[],
+        watchMode: boolean,
+        spawn: Function,
+        env: Object,
+        log: Function
+    }} Configuration to execute
+    @return Observable
+ */
+function createObservable (cfg) {
+    const {dir, taskSet, tasksToRun, watchMode, spawn, env, log} = cfg;
 
-            const observable = createSequencialCommandExecutor (
-                commandList,
-                dir,
-                env,
-                watchMode,
-                {spawn, log});
-            
-        })
-    ));
+    const tasks = tasksToRun.map(taskName => {
+        const commandList = taskSet[taskName];
+        if (!commandList)
+            throw new Error (`No such task name: ${taskName} was configured`);
+        return commandList;
+    });
+
+    return createParallellCommandsExecutor (
+        tasks,
+        dir,
+        env,
+        watchMode,
+        {spawn, log});
 }
 
 /** 
@@ -154,6 +158,7 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
     return new Observable (observer => {
         var prevComplete = false;
         var childProcess = null;
+        var childSubscription = null; // Treat childSubscription exactly the same way as childProcess.
 
         var prevSubscription = prevObservable.subscribe({
             next (envProps) {
@@ -177,6 +182,12 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                         console.error(`Failed to kill '${command}'. Error: ${err}`);
                     }
                     childProcess = null;
+                }
+                if (childSubscription) {
+                    // We've created a child subscription
+                    // We are expected to re-execute the subscription.
+                    childSubscription.unsubscribe();
+                    childSubscription = null;
                 }
                 try { // Don't know if we're required to do try..catch here or if the framework does that for us. Read/test es-observable contract!
                     if (!cmd) {
@@ -211,6 +222,41 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                             exitCode: 0,
                             env: newEnv
                         }));
+                    } else if (cmd === 'just-build') {
+                        // Shortcutting "just-build" commands to:
+                        // 1. Not spawn a new process for it.
+                        // 2. Not having to use [--watch] for it.
+                        host.log(`> ${command}`);
+                        let {refinedArgs, grepString, useWatch} = refineArguments(args, true, command);
+                        if (useWatch)
+                            throw new Error(`[--watch] is redundant for 'just-build'. It will invoke it automatically. http://tinyurl.com/z6ylnb7`);
+                        
+                        const subCfg = extractConfig (["node", "just-build"].concat(args), {cwd: envProps.cwd});
+
+                        extend (subCfg, {
+                            env: envProps.env,
+                            log: host.log,
+                            spawn: host.spawn,
+                            watchMode}); // Override watchmode given to root just-build as we ignore [--watch] argument here.
+
+                        // Treat childSubscription exactly the same way as childProcess.
+                        // it is conceptually the same thing. Use unsubscribe() istead of kill().
+                        childSubscription = createObservable(subCfg).subscribe ({
+                            next (result) {
+                                observer.next(clone(envProps, {
+                                    command: result.command || command, // If succesful exitCode, result.command will be undefined.
+                                    exitCode: result.exitCode
+                                }));
+                            },
+                            complete () {
+                                childSubscription = null;
+                                if (prevComplete) observer.complete();
+                            },
+                            error (err) {
+                                childSubscription = null;
+                                observer.error(err);
+                            }
+                        });
                     } else {
                         // Ordinary command
                         let {refinedArgs, grepString, useWatch} = refineArguments(args, watchMode, command);
@@ -256,7 +302,7 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
             },
             complete() {
                 prevComplete = true;
-                if (!childProcess) observer.complete();
+                if (!childProcess && !childSubscription) observer.complete();
             }
         })
 
@@ -278,10 +324,14 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                     */                        
                     childProcess = null;
                 }
+                if (childSubscription) {
+                    childSubscription.unsubscribe();
+                    childSubscription = null;
+                }
                 prevSubscription.unsubscribe();
             },
             get closed() {
-                return !childProcess && prevSubscription.closed;
+                return !childProcess && !childSubscription && prevSubscription.closed;
             }
         }
     });
@@ -325,4 +375,4 @@ function refineArguments(args, watchMode, commandSource) {
     };
 }
 
-module.exports = {executeAll, refineArguments};
+module.exports = {executeAll, createObservable, refineArguments};

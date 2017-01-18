@@ -1,237 +1,150 @@
 # just-build
-Simplistic task runner with specific support for --watch.
 
-# Why
+[About](https://github.com/dfahlander/just-build/wiki/About)
 
-npm scripts in package.json are great but they do not support --watch. I personally needed custom
-build steps, that would have easily solved with npm scripts (or a bash script) if it wasn't for the
-lack of --watch support. Incremential builds are so essential for the development of any library.
-Contributors must be able to `npm link` and `npm run watch` with ease if it should be possible to
-maintain a library. So I was using custom javascripts-based build scripts for a while, until I found
-them start becoming a hard-to-maintain part of my lib. That's when I decided that I do not want
-complex build systems at all.
+[Command Line Interface](https://github.com/dfahlander/just-build/wiki/CLI)
 
-What about Grunt and Gulp then? To be honest, I was drowning in issues while googling about using
-rollupjs with Gulp. And I feel a little scared that Gulp or Grunt would put me into situations
-where a certain version of tsc, rollup, babel or whatever, hasn't got a corresponding up-to-date
-gulp-plugin.
+[Configuration](https://github.com/dfahlander/just-build/wiki/Configuration)
 
-# Usage (simple)
+[Technical Details](https://github.com/dfahlander/just-build/wiki/Technical Details)
+
+[Error Reference](https://github.com/dfahlander/just-build/wiki/Error Reference)
+
+# Quick Reference
+
+## install
 
 ```
 npm install just-build --save-dev
 ```
+*Using `--save-dev` because you typically configure `npm run build` to call upon it, which works perfectly well will locally installed binaries.*
 
-### *package.json*
+## package.json
 
-You configure your build tasks within package.json itself under "just-build" attribute.
-
-```
+```js
 {
-    "just-build": {
-        "default": [
-            "<CLI command 1> [--watch [grep-text]]",
-            "<CLI command 2>",
-            ...
-        ]
-        "task-name-1": [
-            "<CLI command 1> [--watch [grep-text]]",
-            "<CLI command 2>",
-            ...
-        ],
-        "task-name-2": [
-            "<CLI command 1> [--watch [grep-text]]",
-            "<CLI command 2>",
-            ...
-        ],
-    }
-}
-```
-The "default" task will be executed when no arguments was given to `just-build`.
-
-# CLI
-
-```
-just-build [<options>] [<task>]
-```
-
-## options
-
-```
-    -w --watch   Any command including "[--watch '.*']" will be executed with the --watch
-                 flag and the process will start listening for whenever stdout will output 
-                 the given substring. Whenever it does, it will emit the rest of the flow.
-
-    -p --package Path to an npm package root (or a json file containing "just-build" 
-                 attribute). If a directory is given, it's package.json will be read 
-                 instead of the current package's package.json. If a .json file is
-                 given, that file will be parsed for "just-build" attribute just like
-                 package.json is read.
-```
-
-# --watch explained
-
-Babel has it, buble has it, tsc has it, rollup has it, webpack has it. I'm talking about the --watch flag. It's a great
-flag that makes the build-system start watching for file changes once it is finished building. On any
-change, these tools can incrementially build the library.
-
-just-build never watches for file system changes by itself. Instead it delegates that feature to the
-favourite build tool you use. What just-build is good at, is invoking post build-steps whenever a
-build is complete no matter if it is incremential or not.
-
-If a tool support --watch, you append `[--watch 'X']` at the end of
-the command. Then, when you execute `just-build --watch`, it will add `--watch` to each command marked with [--watch 'X'], start
-listening for 'X' from the stdout and yield the rest of the flow whenever 'X' comes out. 'X' is the part of
-a string that a build tool prints out whenever it is finished with rebuilding the lib. For tsc, it is
-'Compilation complete.'. For rollup, you're safe with 'watching'. To find out the string to use, test
-your tool with --watch and see what output it prints out when it is finished.
-
-# Sample
-
-*package.json*
-
-```json
-{
-    "name": "my-library",
-    "version": "1.0.0",
-    "main": "dist/index.js",
-    "scripts": {
-        "build": "just-build",
-        "watch": "just-build --watch",
-        "test": "mocha test/"
-    },
-    "just-build": {
-        "default": [
-            "just-build myApp [--watch 'just-build myApp done']",
-            "just-build test [--watch 'just-build test done']"
-        ],
-        "myApp": [
-            "tsc [--watch 'Compilation complete.']",
-            "rollup -c",
-            "uglifyjs dist/index.js -m -c -o dist/index.min.js --source-map dist/index.min.js.map  --in-source-map dist/index.js.map",
-            "bash tools/replace-version.sh dist/index.js",
-            "node tools/replace-date.js dist/index.min.js"
-        ],
-        "test": [
-            "tsc --project test [--watch 'Compilation complete.']",
-            "echo \"Foo Bar\""
-        ]
-    }
+  "scripts": {
+    "build": "just-build",
+    "watch": "just-build --watch"
+  },
+  "just-build": {
+    "default": [
+       "just-build src test" // builds src and test (in parallell)
+    ],
+    "src": [
+      "cd src",
+      "tsc [--watch 'Compilation complete.']",
+      "rollup -c", // executed on each code change
+      "eslint src" // executed after rollup (if rollup succeeds)
+    ],
+    "test": [
+      "cd test",
+      "tsc [--watch 'Compilation complete.']",
+      "rollup -c"
+    ],
+    "production": [
+      "NODE_ENV='production'",
+      "just-build"
+    ]
+  }
 }
 ```
 
-Then to build the default flow, type:
+## Build
+
+```
+node_modules/.bin/just-build
+```
+
+or:
 
 ```
 npm run build
 ```
 
-The above command will build the default task, which in its turn will build both myApp and test.
-This will result in the following sequence:
+## watch
 
-1. tsc
-2. rollup -c
-3. *...the rest of commands in "myApp"*
-4. tsc --project test
-5. echo "Foo Bar"
+```
+node_modules/.bin/just-build --watch
+```
 
-To run in watch mode:
+or:
 
 ```
 npm run watch
 ```
-*or:*
-```
-npm run build -- --watch
-```
-*Notice the stand-alone "--"! It tells npm run to pass remaining args to script.*
 
-Any of the above commands will build the two targets with the ability to watch them both! If you want
-to understand how this works, this is the flow that is executed:
-
-    1. tsc --watch
-    2. Whenever stdout from tsc --watch emits "Compilation complete.", execute the following flow:
-        1. rollup -c
-        2. uglifyjs...
-        3. bash... and node ...
-        4. At this point, everything in the "myApp" target is built. It will now output 'just-build myApp done.'
-           to stdout. Then it will continue by invoking the next target 'test':
-        5. tsc --project test --watch
-        6. Whenever stdout from tsc --project test --watch emits "Compilation complete.", execute following:
-            1. echo "Foo Bar"
-            2. At this point, everything in the "test" target is build. It will now output
-               'just-build test done.' to stdout.
-
-Notice that the script starts by invoking commands sequencially, but as soon as it reaches a command marked with
-[--watch], it will start listen to stdout of that process in parallell with continuing the flow.
-
-To just build myApp:
+## Build Specific Task
 
 ```
-npm run build -- myApp
-```
-*Do not forget the empty "--" in the middle!*
-
-
-To build myApp and start watching:
-
-```
-npm run build -- myApp --watch
+node_modules/.bin/just-build production
 ```
 
-# PATH env variable
+or:
 
-Node's "npm run ..." has the feature of adding the local 'node_modules/.bin' to the PATH variable so that locally installed binary modules are included.
-This will also be true when invoking 'just-build' outside of npm. 'just-build' will make sure that
-node_modules/.bin is part of PATH before executing.
+```
+npm run build production
+```
 
-# Working Directory
-The working directory will always be the package root at the beginning of each target no matter where
-the user stand when executing the script, or whether a task in a previously run script has changed
-directory.
+## Watch Specific Task
 
-# Supported Shell
-This script is very simple and will only use [child_process.spawn()](https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options)
-to execute each CLI command in your build targets. This is almost always true (see *Special Treatment of Certain Command Strings* below). What this means is that
-it will execute cmd on windows and bash or sh on *nix, so you should not invoke env-variables or rely on bash-specific
-features in your commands. If that is required, launch `bash <your-script.sh>` on a line and do the advanced bash-
-things in your-script.sh instead. Windows-users using git-bash have bash.exe in their path, so it can work on
-windows too.
+```
+node_modules/.bin/just-build production --watch
+```
 
-# Special Treatment of Certain Command Strings
-Each command listed is passed to [child_process.spawn()](https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options)
-except the following specialities:
+or:
 
-* "cd"  - If a line begins with "cd" the script will invoke process.chdir on the rest. Invoking [child_process.spawn()](https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options)
-would have no effect.
-* "NAME=VALUE" - You may set an environment variable like NODE_ENV="production" on a single line
-* "#" - Hash signs and everything that comes after are ignored.
-* "[--watch <grep-string>]" - If a line has a substring "[--watch .*]", it will be omitted unless --watch was given to the just-build itself.
-If so, it will only use "--watch" part (not "[", "]" or the grep-string). Then, it will start listening for *grep-string* and when a line
-contains it, it will launch a new child-process that continues the rest of the flow while still keeping the orig process alive
-listening for more *grep-string* occurrancies.
+```
+npm run watch production
+```
 
-# Recursive use
-As the sample shows, you can have a main task calling sub tasks by invoking `just-build task_name [--watch 'just-build task_name done']`.
-It is treated as any other command, namely calling just-build task if no watch flag was used, and just-build task --watch if watch
-flag was used. It watches for a line 'just-build task_name done' which is safe to listen for to detect when the full flow has been built.
+## Parallell Build
 
-# Automatic Cancellation of tasks
-If you have several commands containing [--watch ...], or if you are building the watch mode will execute parallell
-processes for watching (as you can read out from the flow explanation of the sample).
+```
+node_modules/.bin/just-build src test
+```
 
-The script will kill any started process and cancel the task if something of the following happens:
+or:
 
-1. The user cancels the just-build script itself.
-2. A command with [--watch ...] in it is triggered while still executing the continous flow.
+```
+npm run build src test
+```
 
-The first bullet is just due to that we execute child processes, and the system will make sure they are killed when
-main process is.
+## Parallell Watch
 
-The second bullet makes sure that it is time to re-run the trailing flow because one source file has changed. Would
-be waste of resources and also volatile to continue rollup while the files being rolled up are changing.
+```
+node_modules/.bin/just-build src test --watch
+```
 
-So if we take the sample where typescript (tsc) is executed with --watch at the first command, followed by
-rollup, uglifyjs and some custom scripts, let's say it is in the middle of rollup while user saves a new version of a
-source file. Then rollup will get killed immediately and restarted from scratch.
+or:
 
+```
+npm run watch src test
+```
+
+# Limitations
+
+This tool executes each configured command string using [child_process.spawn()](https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options) with `shell:true`. You can't do all things you could do in bash. For example:
+
+* <strike>echo "hello world" > out.txt</strike>
+* <strike>echo "hello world" | grep "hello" </strike>
+* <strike>echo '$(node -p 1)'</strike>
+
+# Special Commands
+*(not launched by [child_process.spawn()](https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options))*
+
+<table>
+<tr>
+  <th>just-build</th>
+  <td>Will shortcut to call recursively on other scripts without the cost of spawning another just-build process. The `[--watch]` argument is automatically appended and you do not need to add it. You get an error if you do.</td>
+</tr><tr>
+  <th>cd</th>
+  <td>Changes working directory for the next command. Note that working directory will always be the package root initially for each task.</td>
+</tr><tr>
+  <th>NAME=VALUE</th>
+  <td>Sets environment variable such as NODE_ENV=production</td>
+</tr><tr>
+  <th># comments...</th>
+  <td>Every line is stripped from # comments. Can be used to document the purposes of your tasks.</td>
+</tr>
+</table>
