@@ -177,6 +177,7 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                     // We've created a process as a response to a previous next().
                     // We are expected to re-execute the command.
                     try {
+                        //console.log(`Killing ${command}`);
                         childProcess.kill('SIGTERM'); // Or should we use SIGINT ('CTRL-C')
                     } catch(err) {
                         console.error(`Failed to kill '${command}'. Error: ${err}`);
@@ -310,6 +311,7 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
             unsubscribe () {
                 if (childProcess) {
                     try {
+                        //console.log(`Killing ${command}`);
                         childProcess.kill('SIGTERM'); // Or should we use 'SIGINT' (CTRL-C) ?
                     }
                     catch (err) {
