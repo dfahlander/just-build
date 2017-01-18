@@ -1,6 +1,6 @@
 {
   "name": "just-build",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "A simple task runner that doesn't bloat your package",
   "author": "David Fahlander <https://github.com/dfahlander>",
   "license": "Apache-2.0",

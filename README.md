@@ -6,9 +6,9 @@
 
 [Configuration](https://github.com/dfahlander/just-build/wiki/Configuration)
 
-[Technical Details](https://github.com/dfahlander/just-build/wiki/Technical Details)
+[Technical Details](https://github.com/dfahlander/just-build/wiki/Technical-Details)
 
-[Error Reference](https://github.com/dfahlander/just-build/wiki/Error Reference)
+[Error Reference](https://github.com/dfahlander/just-build/wiki/Error-Reference)
 
 # Quick Reference
 
