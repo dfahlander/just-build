@@ -10,10 +10,18 @@ function spawnOrFork (cmd, args, {cwd, env}) {
         // Use fork instead of spawn to save resources.
         const relativeBinPath = path.relative(cwd, locallyInstalledBinaryModuleEntry);
         console.log(`(node)> ${cmd} ${args.join(' ')}`);
-        return fork(locallyInstalledBinaryModuleEntry, args, {cwd, env});
+        return fork(locallyInstalledBinaryModuleEntry, args, {
+            cwd,
+            env,
+            silent: true
+        });
     } else if (cmd === "node" && fs.existsSync(path.resolve(cwd, args[0]))) {
         console.log(`(node)> ${args[0]} ${args.slice(1).join(' ')}`);
-        return fork(args[0], args.slice(1), {cwd, env});
+        return fork(args[0], args.slice(1), {
+            cwd,
+            env,
+            silent: true
+        });
     } else {
         //console.log(`Using spawn: ${cmd}`)
         cmd = surroundWithQuotes(cmd);

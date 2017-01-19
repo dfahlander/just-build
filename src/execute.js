@@ -27,7 +27,7 @@ function executeAll (cfg) {
         createObservable(cfg).subscribe({
             next ({command, exitCode}) {
                 if (exitCode == 0)
-                    cfg.log(`just-build ${cfg.tasksToRun.join(' ')} done.`);
+                    cfg.log(`just-build ${cfg.tasksToRun.join(' ')} done.${cfg.watchMode ? ' Now watching...' : ''}`);
                 else 
                     cfg.log(`just-build ${cfg.tasksToRun.join(' ')} failed. ${command} returned ${exitCode}`);
             },

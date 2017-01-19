@@ -138,6 +138,12 @@ This tool executes each configured command string using [child_process.spawn()](
   <th>just-build</th>
   <td>Will shortcut to call recursively on other scripts without the cost of spawning another just-build process. The `[--watch]` argument is automatically appended and you do not need to add it. You get an error if you do.</td>
 </tr><tr>
+  <th>&lt;locally installed binary&gt;</th>
+  <td>If you've installed a binary locally <code>npm install typescript --save-dev</code>, and you invoke <code>tsc</code> which is a binary bundled with typescript, an optimization kicks in so that the binary is launched using child_process.fork() instead of child_process.spawn().</td>
+</tr><tr>
+  <th>node</th>
+  <td>If you execute a JS script using <pre>node scripts/myscript.js</pre> the script will be executed using child_process.fork() instead of child_process.spawn() to optimize resources.</td>
+</tr><tr>
   <th>cd</th>
   <td>Changes working directory for the next command. Note that working directory will always be the package root initially for each task.</td>
 </tr><tr>
