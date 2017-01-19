@@ -18,8 +18,8 @@ describe("execute", ()=>{
         return executeAll(host).then(()=>{
             expect(host.commandLog).to.deep.equal([
                 {
-                    cmd: '"simple"',
-                    args: ['"command"'],
+                    cmd: 'simple',
+                    args: ['command'],
                     options: {
                         cwd: "/package/root",
                         env: {FOO: "bar"},
@@ -28,7 +28,6 @@ describe("execute", ()=>{
                 }
             ]);
             expect(host.consoleLog).to.deep.equal([
-                '> "simple" "command"',
                 "just-build default done."
             ]);
             expect(host.killLog).to.deep.equal([], "Shouldn't have been killed");
@@ -54,8 +53,8 @@ describe("execute", ()=>{
         return executeAll(host).then(()=>{
             expect(host.commandLog).to.deep.equal([
                 {
-                    cmd: '"one"',
-                    args: ['"command"', '"to"', '"execute"'],
+                    cmd: 'one',
+                    args: ['command', 'to', 'execute'],
                     options: {
                         cwd: "/package/root",
                         env: {FOO: "bar"},
@@ -63,7 +62,7 @@ describe("execute", ()=>{
                     }
                 },
                 {
-                    cmd: '"two"',
+                    cmd: 'two',
                     args: [],
                     options: {
                         cwd: "/package/root",
@@ -72,8 +71,8 @@ describe("execute", ()=>{
                     }
                 },
                 {
-                    cmd: '"three"',
-                    args: ['"commands to fake"'],
+                    cmd: 'three',
+                    args: ['commands to fake'],
                     options: {
                         cwd: path.resolve("/package/root", "subfolder"), // on windows c:\package\root\subfolder.
                         env: {FOO: "bar", NODE_ENV: "production"},
@@ -103,8 +102,8 @@ describe("execute", ()=>{
         let watchProcess = null;
         return host.commandStream.next().then(({value, done})=>{
             const {cmd, args, options, process} = value;
-            expect(cmd).to.equal('"watcher"');
-            expect(args).to.deep.equal(['"a"', '"b"', '"c"', '"--watch"']);
+            expect(cmd).to.equal('watcher');
+            expect(args).to.deep.equal(['a', 'b', 'c', '--watch']);
             watchProcess = process;
             process.stdout.trigger('data', 'some debug output'); // Should not wake up.
             expect(host.commandLog.length).to.equal(1, "Still no extra command triggered");
@@ -112,13 +111,13 @@ describe("execute", ()=>{
             return host.commandStream.next();
         }).then(({value, done}) => {
             const {cmd, args, options, process} = value;
-            expect(cmd).to.equal('"two"');
+            expect(cmd).to.equal('two');
             expect(host.commandLog.length).to.equal(2);
             process.trigger('exit', 0);
             return host.commandStream.next();
         }).then(({value, done}) => {
             const {cmd, args, options, process} = value;
-            expect(cmd).to.equal('"three"');
+            expect(cmd).to.equal('three');
             expect(host.commandLog.length).to.equal(3);
             assert(!host.consoleLog.includes('just-build default done.'), "Should not yet have fulfilled a complete flow.");
             process.trigger('exit', 0);
@@ -128,13 +127,13 @@ describe("execute", ()=>{
         }).then(({value, done}) => {
             const {cmd, args, options, process} = value;
             assert(host.consoleLog.includes('just-build default done.'), "Should now have completed the flow once");
-            expect(cmd).to.equal('"two"');
+            expect(cmd).to.equal('two');
             expect(host.commandLog.length).to.equal(4);
             process.trigger('exit', 0);
             return host.commandStream.next();
         }).then(({value, done}) => {
             const {cmd, args, options, process} = value;
-            expect(cmd).to.equal('"three"');
+            expect(cmd).to.equal('three');
             expect(host.commandLog.length).to.equal(5);
             // Now don't yet exit this process. Instead verify it is killed once the flow is restarted again
             watchProcess.stdout.trigger('data', 'Once again, Compilation complete. This time before three was done.');

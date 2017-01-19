@@ -2,7 +2,7 @@ const {getPackageRoot} = require ('./dirutils');
 const fs = require('fs');
 const path = require('path');
 
-function extractConfig (args, {cwd}) {
+function extractConfig (args, {cwd, env}) {
     args = args.slice(2);
     const pkg = getPackageOption(args) || cwd;
     const pkgIsDir = fs.lstatSync(pkg).isDirectory();
@@ -33,7 +33,7 @@ function extractConfig (args, {cwd}) {
     }
 
     // Make sure packageRoot/node_modules/.bin is part of PATH.
-    let PATH = process.env.PATH || "";
+    let PATH = env.PATH || "";
     const node_modules_bin = path.resolve(packageRoot, 'node_modules/.bin');
     if (PATH.indexOf(`node_modules${path.sep}.bin`) === -1) {
         PATH = `${PATH}${path.delimiter}${node_modules_bin}`;
@@ -43,7 +43,9 @@ function extractConfig (args, {cwd}) {
         dir: packageRoot,
         taskSet: taskSet,
         tasksToRun: tasksToRun,
-        watchMode: args.some(arg => arg === '--watch' || arg === '-w')
+        watchMode: args.some(arg => arg === '--watch' || arg === '-w'),
+        env: env,
+        packageRoot
     };
 }
 

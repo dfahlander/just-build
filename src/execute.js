@@ -15,12 +15,14 @@ const { extend } = require('./extend');
         watchMode: boolean,
         spawn: Function,
         env: Object,
-        log: Function
+        log: Function,
+        packageRoot: string
     }} Configuration to execute
     @return Promise
  */
 
 function executeAll (cfg) {
+    console.log(`Package: ${cfg.packageRoot}`);
     return new Promise((resolve, reject) => {
         createObservable(cfg).subscribe({
             next ({command, exitCode}) {
@@ -227,15 +229,18 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                         // Shortcutting "just-build" commands to:
                         // 1. Not spawn a new process for it.
                         // 2. Not having to use [--watch] for it.
-                        host.log(`> ${command}`);
                         let {refinedArgs, grepString, useWatch} = refineArguments(args, true, command);
-                        if (useWatch)
+                        if (useWatch) {
+                            host.log(`> ${command}`);
                             throw new Error(`[--watch] is redundant for 'just-build'. It will invoke it automatically. http://tinyurl.com/z6ylnb7`);
+                        }
                         
-                        const subCfg = extractConfig (["node", "just-build"].concat(args), {cwd: envProps.cwd});
+                        const subCfg = extractConfig (["node", "just-build"].concat(args), {
+                            cwd: envProps.cwd,
+                            env: envProps.env
+                        });
 
                         extend (subCfg, {
-                            env: envProps.env,
                             log: host.log,
                             spawn: host.spawn,
                             watchMode}); // Override watchmode given to root just-build as we ignore [--watch] argument here.
@@ -261,17 +266,17 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                     } else {
                         // Ordinary command
                         let {refinedArgs, grepString, useWatch} = refineArguments(args, watchMode, command);
-                        host.log(`> ${surroundWithQuotes(cmd)} ${refinedArgs.map(surroundWithQuotes).join(' ')}`);
+
                         childProcess = (host.spawn)(
-                            surroundWithQuotes(cmd),
-                            refinedArgs.map(surroundWithQuotes), {
+                            cmd,
+                            refinedArgs, {
                                 cwd: envProps.cwd,
                                 env: envProps.env,
                                 shell: true
                             });
                         
-                        childProcess.stdout.pipe(process.stdout);
-                        childProcess.stderr.pipe(process.stderr);
+                        childProcess.stdout && childProcess.stdout.pipe(process.stdout);
+                        childProcess.stderr && childProcess.stderr.pipe(process.stderr);
 
                         childProcess.on('error', err => observer.error(err)); // Correct? Or just 
                         if (useWatch) {
