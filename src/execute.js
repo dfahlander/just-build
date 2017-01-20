@@ -1,10 +1,17 @@
-const { Observable, clc } = require ('../bundledExternals/bundle');
+const { Observable } = require ('../bundledExternals/bundle');
 const path = require ('path');
 const { tokenize, surroundWithQuotes } = require ('./tokenize');
 const { clone } = require ('./extend');
 const { extractConfig } = require ('./extract-config');
 const { extend } = require('./extend');
 const { ColorTransform } = require ('./color-transform');
+const clr = require ('./console-colors');
+const COMMENT_COLOR = clr.GREEN;
+const EMIT_COLOR = clr.GREEN + clr.BOLD;
+const NOW_WATCHING_COLOR = clr.MAGENTA;
+const SPECIAL_PROMPT_COLOR = clr.DIM;
+const COMMAND_COLOR = clr.CYAN;
+
 //const events = require('events');
 //events.EventEmitter.defaultMaxListeners = 100;    
 
@@ -25,12 +32,13 @@ const { ColorTransform } = require ('./color-transform');
  */
 
 function executeAll (cfg) {
-    console.log(`Package: ${cfg.packageRoot}`);
+    console.log(`${clr.DIM+clr.LIGHT_MAGENTA}Package: ${cfg.packageRoot}${clr.RESET}`);
     return new Promise((resolve, reject) => {
         createObservable(cfg).subscribe({
             next ({command, exitCode}) {
                 if (exitCode == 0)
-                    cfg.log(`just-build ${cfg.tasksToRun.join(' ')} done.${cfg.watchMode ? ' Now watching...' : ''}`);
+                    cfg.log(`${EMIT_COLOR}just-build ${cfg.tasksToRun.join(' ')}`+
+                            ` done.${clr.RESET}${cfg.watchMode ? NOW_WATCHING_COLOR+' Still watching...'+clr.RESET : ''}`);
                 else 
                     cfg.log(`just-build ${cfg.tasksToRun.join(' ')} failed. ${command} returned ${exitCode}`);
             },
@@ -200,7 +208,10 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                         // Comment or empty line. ignore.
                         const text = command.split('#').map(s=>s.trim());
                         if (text.length > 1) {
-                            host.log(clc.green.bold(text.slice(1).join(' ')));
+                            host.log(
+                                COMMENT_COLOR +
+                                text.slice(1).join(' ') +
+                                clr.RESET);
                         }
                         observer.next(clone(envProps, {
                             command: command,
@@ -209,7 +220,7 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                     } else if (cmd === 'cd') {
                         // cd
                         const newDir = path.resolve(envProps.cwd, args[0]);
-                        host.log(`> cd ${args[0]}`);
+                        host.log(`${SPECIAL_PROMPT_COLOR}> ${COMMAND_COLOR}cd ${args[0]}${clr.RESET}`);
                         observer.next(clone(envProps, {
                             command: command,
                             exitCode: 0,
@@ -225,7 +236,7 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                         const [variable, value] = statement.split('=');
                         const newEnv = clone(envProps.env);
                         newEnv[variable] = value;
-                        host.log(`> ${variable}=${surroundWithQuotes(value)}`);
+                        host.log(`${SPECIAL_PROMPT_COLOR}> ${COMMAND_COLOR}${variable}=${surroundWithQuotes(value)}${clr.RESET}`);
                         observer.next(clone(envProps, {
                             command: command,
                             exitCode: 0,
@@ -237,7 +248,7 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                         // 2. Not having to use [--watch] for it.
                         let {refinedArgs, grepString, useWatch} = refineArguments(args, true, command);
                         if (useWatch) {
-                            host.log(`> ${command}`);
+                            host.log(`${SPECIAL_PROMPT_COLOR}> ${COMMAND_COLOR}${command}${clr.RESET}`);
                             throw new Error(`[--watch] is redundant for 'just-build'. It will invoke it automatically. http://tinyurl.com/z6ylnb7`);
                         }
                         

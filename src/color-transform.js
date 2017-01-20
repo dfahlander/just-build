@@ -1,5 +1,7 @@
 const { Transform } = require('stream');
-const { clc } = require ('../bundledExternals/bundle');
+const clr = require('./console-colors');
+const ERROR_COLOR = clr.RED;
+const WARNING_COLOR = clr.YELLOW + clr.BOLD;
 
 class ColorTransform extends Transform {
     constructor (isStdErr) {
@@ -15,9 +17,9 @@ class ColorTransform extends Transform {
                         [chunk, encoding] :
                         [chunk.toString("utf-8"), "utf-8"];
                 if (/error\s/i.test(strChunk)) {
-                    this.push(clc.red(strChunk), strEnc);
+                    this.push(ERROR_COLOR+strChunk+clr.RESET, strEnc);
                 } else if (/warning\s/i.test(strChunk) || this.isStdErr) {
-                    this.push(clc.yellow.bold(strChunk), strEnc);
+                    this.push(WARNING_COLOR+strChunk+clr.RESET, strEnc);
                 } else {
                     this.push(chunk, encoding);
                 }

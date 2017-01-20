@@ -27,9 +27,7 @@ describe("execute", ()=>{
                     }
                 }
             ]);
-            expect(host.consoleLog).to.deep.equal([
-                "just-build default done."
-            ]);
+            expect(host.consoleLog[0]).to.contain("just-build default done.");
             expect(host.killLog).to.deep.equal([], "Shouldn't have been killed");
         });
     });
