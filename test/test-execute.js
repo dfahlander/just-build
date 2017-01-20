@@ -126,7 +126,7 @@ describe("execute", ()=>{
             return host.commandStream.next();
         }).then(({value, done}) => {
             const {cmd, args, options, process} = value;
-            assert(host.consoleLog.includes('just-build default done.'), "Should now have completed the flow once");
+            assert(host.consoleLog.some(line => line.indexOf('just-build default done.') !== -1), "Should now have completed the flow once");
             expect(cmd).to.equal('two');
             expect(host.commandLog.length).to.equal(4);
             process.trigger('exit', 0);
