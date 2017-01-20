@@ -1,9 +1,12 @@
-const { Observable } = require ('../bundledExternals/bundle');
+const { Observable, clc } = require ('../bundledExternals/bundle');
 const path = require ('path');
 const { tokenize, surroundWithQuotes } = require ('./tokenize');
 const { clone } = require ('./extend');
 const { extractConfig } = require ('./extract-config');
 const { extend } = require('./extend');
+const { ColorTransform } = require ('./color-transform');
+//const events = require('events');
+//events.EventEmitter.defaultMaxListeners = 100;    
 
 /** 
  * Execute the build tasks.
@@ -195,7 +198,10 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                 try { // Don't know if we're required to do try..catch here or if the framework does that for us. Read/test es-observable contract!
                     if (!cmd) {
                         // Comment or empty line. ignore.
-                        host.log(`> ${command}`);
+                        const text = command.split('#').map(s=>s.trim());
+                        if (text.length > 1) {
+                            host.log(clc.green.bold(text.slice(1).join(' ')));
+                        }
                         observer.next(clone(envProps, {
                             command: command,
                             exitCode: 0
@@ -275,8 +281,8 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                                 shell: true
                             });
                         
-                        childProcess.stdout && childProcess.stdout.pipe(process.stdout);
-                        childProcess.stderr && childProcess.stderr.pipe(process.stderr);
+                        childProcess.stdout.pipe(new ColorTransform()).pipe(process.stdout);
+                        childProcess.stderr.pipe(new ColorTransform(true)).pipe(process.stderr);
 
                         childProcess.on('error', err => observer.error(err)); // Correct? Or just 
                         if (useWatch) {

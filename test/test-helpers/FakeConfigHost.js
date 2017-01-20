@@ -59,10 +59,14 @@ function FakeConfigHost (template, options) {
                     assert (event === 'data', "Mockup only supports 'data' events");
                     stdoutDataEvent.next(data);
                 },
-                pipe(){}
+                pipe(){
+                    return this;
+                }
             },
             stderr: {
-                pipe(){}
+                pipe(){
+                    return this;
+                }
             },
             kill () {
                 console.log(`[${pid}] was killed.`);
