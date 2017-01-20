@@ -12,6 +12,17 @@ function whichLocal (cmd, cwd) {
     if (!fs.existsSync(binScript)) return null;
 
     const scriptLines = fs.readFileSync(binScript, "utf-8").split('\n');
+    if (scriptLines.length === 0) return null;
+    const shebang = scriptLines[0].trim();
+    if (shebang[0] != "#") return null;
+    if (shebang.indexOf("bin/sh") === -1) {
+        // Not a shellscript (cygwin starter)
+        if (scriptLines[0].indexOf(' node') !== -1) {
+            // A node script by itself
+            return path.normalize(binScript);
+        }
+        return null;
+    }
     const invokerLines = scriptLines.filter(line => line.indexOf('node ') !== -1);
     // Expected to find: `  node  "$basedir/../uglify-js/bin/uglifyjs" "$@"`
     if (invokerLines.length < 1) return null;
