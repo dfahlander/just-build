@@ -27,7 +27,7 @@ function spawnOrFork (cmd, args, {cwd, env}) {
         //console.log(`Using spawn: ${cmd}`)
         cmd = surroundWithQuotes(cmd);
         args = args.map(surroundWithQuotes);
-        console.log(`${clr.DARK_GRAY}> ${clr.BLUE}${cmd} ${args.join(' ')}${clr.RESET}`);
+        console.log(`${clr.DIM}> ${clr.CYAN}${cmd} ${args.join(' ')}${clr.RESET}`);
         return spawn(cmd, args, {
             cwd,
             env,
