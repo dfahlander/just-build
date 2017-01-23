@@ -17,9 +17,9 @@ class ColorTransform extends Transform {
                     typeof chunk === 'string' ?
                         [chunk, encoding] :
                         [chunk.toString("utf-8"), "utf-8"];
-                if (/error\s/i.test(strChunk)) {
+                if (/error(\s|\:)/i.test(strChunk)) {
                     this.push(ERROR_COLOR+strChunk+clr.RESET, strEnc);
-                } else if (/warning\s/i.test(strChunk)) {
+                } else if (/warning(\s|\:)/i.test(strChunk)) {
                     this.push(WARNING_COLOR+strChunk+clr.RESET, strEnc);
                 } else if (this.isStdErr) {
                     this.push(STDERR_COLOR+strChunk+clr.RESET, strEnc);
