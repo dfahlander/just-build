@@ -1,6 +1,6 @@
 {
   "name": "just-build",
-  "version": "0.9.14",
+  "version": "0.9.16",
   "description": "A simple task runner that doesn't bloat your package",
   "author": "David Fahlander <https://github.com/dfahlander>",
   "license": "Apache-2.0",
@@ -21,6 +21,7 @@
   "scripts": {
     "prebuild": "cd bundledExternals && rollup -c",
     "build": "buble src -o dist",
+    "prepublish": "npm run build && npm run test",
     "test": "mocha"
   },
   "dependencies": {},
