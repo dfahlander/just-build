@@ -13,4 +13,13 @@ function getPackageRoot (dir) {
     return (lastDir === dir ? null : dir);
 }
 
-module.exports = {getPackageRoot};
+function getBinLocation (dir, bin) {
+    let lastDir = null;
+    while (lastDir !== dir && !fs.existsSync(path.resolve(dir, "./node_modules/.bin/" + bin))) {
+        lastDir = dir;
+        dir = path.dirname(dir);
+    }
+    return (lastDir === dir ? null : path.resolve(dir, "./node_modules/.bin/" + bin));
+}
+
+module.exports = {getPackageRoot, getBinLocation};

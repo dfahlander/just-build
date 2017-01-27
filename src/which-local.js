@@ -1,13 +1,13 @@
 const path = require('path');
 const fs = require('fs');
-const {getPackageRoot} = require('./dirutils');
+const {getPackageRoot, getBinLocation} = require('./dirutils');
 const {tokenize, surroundWithQuotes} = require('./tokenize');
 
 function whichLocal (cmd, cwd) {
-    const packageRoot = getPackageRoot (cwd);
-    const node_modules = path.resolve(packageRoot, "node_modules");
-    const node_modules_bin = path.resolve(node_modules, ".bin");
-    const binScript = path.resolve(node_modules_bin, cmd);
+    const binScript = getBinLocation(cwd, cmd);
+    if (!binScript) return null;
+    const binDir = path.dirname (binScript);
+    const node_modules = path.normalize(path.resolve(binDir, ".."));
 
     if (!fs.existsSync(binScript)) return null;
 
