@@ -1,6 +1,7 @@
 const {getPackageRoot} = require ('./dirutils');
 const fs = require('fs');
 const path = require('path');
+const { clone } = require ('./extend');
 
 function extractConfig (args, {cwd, env}) {
     args = args.slice(2);
@@ -44,7 +45,7 @@ function extractConfig (args, {cwd, env}) {
         taskSet: taskSet,
         tasksToRun: tasksToRun,
         watchMode: args.some(arg => arg === '--watch' || arg === '-w'),
-        env: env,
+        env: clone(cfg, env), // Pass package.json as ENV vars unless overrided by os ENV vars.
         packageRoot
     };
 }

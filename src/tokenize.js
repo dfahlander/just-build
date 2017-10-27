@@ -6,11 +6,23 @@ function isWhiteSpace(ch) {
         ch === '\n');
 }
 
-function tokenize (cmd) {
+function tokenize (cmd, envVars) {
     var result = [];
     var nextToken = null;
     var inWord = false;
     var quote = null;
+    var varStart = 0;
+    if (!envVars) envVars = {};
+
+    function stopVarState() {
+        if (varStart) {
+            // If we are within a variable and hit a baslash,
+            // we should end and resolve the varable first
+            nextToken += envVars[cmd.substring(varStart, i)] || "";
+            varStart = 0; // Takes us out from VAR state.
+        }
+    }
+
     for (var i=0, len = cmd.length; i < len; ++i) {
         var ch = cmd[i];
         if (!inWord) {
@@ -22,11 +34,14 @@ function tokenize (cmd) {
             }
         } else {
             // in word.
-            if (!quote && isWhiteSpace(ch)) {
-                inWord = false;
-                result.push(nextToken);
-                nextToken = null;
-                continue;
+            if (isWhiteSpace(ch)) {
+                stopVarState();
+                if (!quote) {
+                    inWord = false;
+                    result.push(nextToken);
+                    nextToken = null;
+                    continue;
+                }
             }
         }
         // Non-white-space in word:
@@ -34,17 +49,20 @@ function tokenize (cmd) {
             // End-quote reached
             quote = null;
             inWord = false;
+            stopVarState();
             result.push(nextToken);
             nextToken = null;
             continue;
         }
         if (!quote && (ch === '"' || ch === "'")) {
             // String begin
+            stopVarState();
             quote = ch;
             continue;
         }
         if (ch === '\\' && i + 1 < len) {
             // Escape characted
+            stopVarState();
             nextToken += cmd[++i];
             continue;
         }
@@ -52,8 +70,17 @@ function tokenize (cmd) {
             // Ignore comments
             break;
         }
-        nextToken += ch;
+        if (ch == '$') {
+            stopVarState();
+            varStart = i + 1;
+        }
+        if (!varStart) {
+            nextToken += ch;
+        }
     }
+
+    stopVarState();
+
     if (nextToken)
         result.push(nextToken);
 

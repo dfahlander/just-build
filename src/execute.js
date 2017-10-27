@@ -12,9 +12,6 @@ const NOW_WATCHING_COLOR = clr.MAGENTA;
 const SPECIAL_PROMPT_COLOR = clr.DIM;
 const COMMAND_COLOR = clr.CYAN;
 
-//const events = require('events');
-//events.EventEmitter.defaultMaxListeners = 100;    
-
 /** 
  * Execute the build tasks.
  * 
@@ -166,8 +163,6 @@ function createSequencialCommandExecutor (commands, workingDir, envVars, watchMo
     }} Host and Configuration.
  */
 function createCommandExecutor (command, prevObservable, watchMode, host) {
-    let [cmd, ...args] = tokenize (command);
-
     return new Observable (observer => {
         var prevComplete = false;
         var childProcess = null;
@@ -175,6 +170,7 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
 
         var prevSubscription = prevObservable.subscribe({
             next (envProps) {
+                let [cmd, ...args] = tokenize (command, envProps.env);
                 if (envProps.exitCode) {
                     // Previous process exited with non-zero.
                     // Should not continue flow. Instead, forward the error all the
