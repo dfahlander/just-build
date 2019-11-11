@@ -36,8 +36,13 @@ function executeAll (cfg) {
                 if (exitCode == 0)
                     cfg.log(`${EMIT_COLOR}just-build ${cfg.tasksToRun.join(' ')}`+
                             ` done.${clr.RESET}${cfg.watchMode ? NOW_WATCHING_COLOR+' Still watching...'+clr.RESET : ''}`);
-                else 
-                    cfg.log(`just-build ${cfg.tasksToRun.join(' ')} failed. ${command} returned ${exitCode}`);
+                else {
+                    const errText = `just-build ${cfg.tasksToRun.join(' ')} failed. ${command} returned ${exitCode}`;
+                    cfg.log(errText);
+                    if (!cfg.watchMode) {
+                        reject(new Error(errText));
+                    }
+                }
             },
             error (err) {
                 reject(err);
