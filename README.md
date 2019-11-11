@@ -6,9 +6,11 @@
 
 [Configuration](https://github.com/dfahlander/just-build/wiki/Configuration)
 
-[Technical Details](https://github.com/dfahlander/just-build/wiki/Technical-Details)
-
 [Error Reference](https://github.com/dfahlander/just-build/wiki/Error-Reference)
+
+# How this tool works and why I wrote it
+
+[Technical Details](https://github.com/dfahlander/just-build/wiki/Technical-Details)
 
 # Quick Reference
 
