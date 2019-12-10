@@ -29,9 +29,9 @@ describe("tokenize", ()=>{
     });
 
     it('should expand variables', ()=> {
-        expect(tokenize('$version')).to.deep.equal([]);
+        expect(tokenize('$version', {})).to.deep.equal([]);
         expect(tokenize('$version', {version: "1.2.3"})).to.deep.equal(["1.2.3"]);
-        expect(tokenize('prefix$version')).to.deep.equal(['prefix']);
+        expect(tokenize('prefix$version', {})).to.deep.equal(['prefix']);
         expect(tokenize('prefix$version', {version: "1.2.3"})).to.deep.equal(['prefix1.2.3']);
         expect(tokenize('$a $b c', {a: 1, b: "B"}))
             .to.deep.equal(["1", "B", "c"]);
