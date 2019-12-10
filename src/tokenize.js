@@ -12,13 +12,12 @@ function tokenize (cmd, envVars) {
     var inWord = false;
     var quote = null;
     var varStart = 0;
-    if (!envVars) envVars = {};
 
     function stopVarState() {
         if (varStart) {
             // If we are within a variable and hit a baslash,
             // we should end and resolve the varable first
-            nextToken += envVars[cmd.substring(varStart, i)] || "";
+            if (envVars) nextToken += envVars[cmd.substring(varStart, i)] || "";
             varStart = 0; // Takes us out from VAR state.
         }
     }
@@ -70,7 +69,7 @@ function tokenize (cmd, envVars) {
             // Ignore comments
             break;
         }
-        if (ch == '$') {
+        if (ch == '$' && envVars) {
             stopVarState();
             varStart = i + 1;
         }
