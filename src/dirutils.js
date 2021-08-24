@@ -1,11 +1,12 @@
 const path = require('path');
 const fs = require('fs');
+const debug = require('./debug');
 
 /** Navigates upwards to the closest dir that contains a 'package.json'.
  * @param dir {string} Directory to start from.
  */
 function getPackageRoot (dir) {
-    console.debug(`getPackageRoot(${JSON.stringify(dir)})`);
+    debug.log(`getPackageRoot(${JSON.stringify(dir)})`);
     let lastDir = null;
     while (lastDir !== dir && !fs.existsSync(path.resolve(dir, "./package.json"))) {
         lastDir = dir;
