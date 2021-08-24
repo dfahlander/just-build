@@ -35,9 +35,16 @@ function whichLocal (cmd, cwd) {
     // Expected to find: `  node  "$basedir/../uglify-js/bin/uglifyjs" "$@"`
     if (invokerLines.length < 1) return null;
     const tokenized = tokenize(invokerLines[0]);
-    // Expected: "node", "$basedir/../uglify-js/bin/uglifyjs", "$@"
+    // Expected: "node", "$basedir/../uglify-js/bin/uglifyjs", "$@" or
+    //           "exec", "node", "$basedir/../typescript/bin/tsc", "$@" or
+    //           "exec", "$basedir/node", "$basedir/../typescript/bin/tsc". "$@""
     if (tokenized.length < 3) return null;
-    let splitted = tokenized[1].split('/');
+    const binFilePath = tokenized.find(part =>
+        part !== 'exec' &&
+        part !== 'node' &&
+        !part.endsWith('/node')
+    );
+    let splitted = binFilePath.split('/');
     while (splitted.length > 0 && (
         splitted[0].indexOf('$') === 0 || // $basedir
         splitted[0] === '..' || // ".."
