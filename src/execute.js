@@ -283,7 +283,11 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                         });
                     } else {
                         // Ordinary command
+                        console.debug(`ordinary command: ${JSON.stringify([args, watchMode, command])}`);
                         let {refinedArgs, grepString, useWatch} = refineArguments(args, watchMode, command);
+                        console.debug(`[refinedArgs, grepString, useWatch] = ${JSON.stringify([refinedArgs, grepString, useWatch])}`);
+                        console.debug(`cmd = ${JSON.stringify(cmd)}`);
+                        console.debug(`cwd = ${envProps.cwd}, env = ${envProps.env}`);
 
                         childProcess = (host.spawn)(
                             cmd,

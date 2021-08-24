@@ -5,6 +5,7 @@ const fs = require('fs');
  * @param dir {string} Directory to start from.
  */
 function getPackageRoot (dir) {
+    console.debug(`getPackageRoot(${JSON.stringify(dir)})`);
     let lastDir = null;
     while (lastDir !== dir && !fs.existsSync(path.resolve(dir, "./package.json"))) {
         lastDir = dir;
