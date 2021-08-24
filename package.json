@@ -1,6 +1,6 @@
 {
   "name": "just-build",
-  "version": "0.9.19",
+  "version": "0.9.20",
   "description": "A simple task runner that doesn't bloat your package",
   "author": "David Fahlander <https://github.com/dfahlander>",
   "license": "Apache-2.0",
@@ -24,7 +24,6 @@
     "prepublish": "npm run build && npm run test",
     "test": "mocha"
   },
-  "dependencies": {},
   "devDependencies": {
     "buble": "^0.15.2",
     "chai": "^3.5.0",

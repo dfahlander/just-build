@@ -6,6 +6,7 @@ const { extractConfig } = require ('./extract-config');
 const { extend } = require('./extend');
 const { ColorTransform } = require ('./color-transform');
 const clr = require ('./console-colors');
+const debug = require('./debug');
 const COMMENT_COLOR = clr.GREEN;
 const EMIT_COLOR = clr.GREEN + clr.BOLD;
 const NOW_WATCHING_COLOR = clr.MAGENTA;
@@ -283,7 +284,11 @@ function createCommandExecutor (command, prevObservable, watchMode, host) {
                         });
                     } else {
                         // Ordinary command
+                        debug.log(`ordinary command: ${JSON.stringify([args, watchMode, command])}`);
                         let {refinedArgs, grepString, useWatch} = refineArguments(args, watchMode, command);
+                        debug.log(`[refinedArgs, grepString, useWatch] = ${JSON.stringify([refinedArgs, grepString, useWatch])}`);
+                        debug.log(`cmd = ${JSON.stringify(cmd)}`);
+                        debug.log(`cwd = ${envProps.cwd}, env = ${envProps.env}`);
 
                         childProcess = (host.spawn)(
                             cmd,

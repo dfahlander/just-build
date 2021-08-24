@@ -4,6 +4,7 @@ const {whichLocal} = require ('./which-local');
 const path = require('path');
 const fs = require('fs');
 const clr = require ('./console-colors');
+const debug = require('./debug');
 
 function spawnOrFork (cmd, args, {cwd, env}) {
     const locallyInstalledBinaryModuleEntry = whichLocal (cmd, cwd);
@@ -24,8 +25,9 @@ function spawnOrFork (cmd, args, {cwd, env}) {
             silent: true
         });
     } else {
-        //console.log(`Using spawn: ${cmd}`)
+        debug.log(`Using spawn: ${cmd}`);
         cmd = surroundWithQuotes(cmd);
+        debug.log(`cmd = ${cmd}`);
         args = args.map(surroundWithQuotes);
         console.log(`${clr.DIM}> ${clr.CYAN}${cmd} ${args.join(' ')}${clr.RESET}`);
         return spawn(cmd, args, {
